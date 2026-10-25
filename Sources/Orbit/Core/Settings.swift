@@ -188,6 +188,101 @@ enum AppLanguage: String, CaseIterable, PrefValue, Identifiable {
     }
 }
 
+enum LockStyle: String, CaseIterable, PrefValue, Identifiable {
+    case lyrics, cover, karaoke, card
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .lyrics: return tr("Letras", "Lyrics")
+        case .cover: return tr("Portada", "Cover")
+        case .karaoke: return tr("Karaoke", "Karaoke")
+        case .card: return tr("Tarjeta", "Card")
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .lyrics: return tr("Portada y controles a un lado, letra al otro, como Apple Music", "Cover and controls on one side, lyrics on the other, like Apple Music")
+        case .cover: return tr("La portada grande al centro, con su reflejo", "A big centered cover with its reflection")
+        case .karaoke: return tr("La letra enorme al centro y un reproductor mínimo", "Huge centered lyrics and a minimal player")
+        case .card: return tr("Una tarjeta compacta que deja ver tu fondo", "A compact card that lets your wallpaper show")
+        }
+    }
+    var next: LockStyle {
+        let all = LockStyle.allCases
+        return all[(all.firstIndex(of: self)! + 1) % all.count]
+    }
+}
+
+enum LockBackground: String, CaseIterable, PrefValue, Identifiable {
+    case aurora, blurred, dark
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .aurora: return tr("Colores en movimiento", "Moving colors")
+        case .blurred: return tr("Portada difuminada", "Blurred cover")
+        case .dark: return tr("Oscuro", "Dark")
+        }
+    }
+}
+
+enum ClockStyle: String, CaseIterable, PrefValue, Identifiable {
+    case rounded, classic, light
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .rounded: return tr("Redondeado", "Rounded")
+        case .classic: return tr("Clásico", "Classic")
+        case .light: return tr("Fino", "Light")
+        }
+    }
+}
+
+enum TextAlign: String, CaseIterable, PrefValue, Identifiable {
+    case leading, center
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .leading: return tr("Izquierda", "Left")
+        case .center: return tr("Centro", "Center")
+        }
+    }
+}
+
+enum AccentMode: String, CaseIterable, PrefValue, Identifiable {
+    case artwork, system, custom
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .artwork: return tr("De la portada", "From artwork")
+        case .system: return tr("Del sistema", "System")
+        case .custom: return tr("Personalizado", "Custom")
+        }
+    }
+}
+
+enum IslandSize: String, CaseIterable, PrefValue, Identifiable {
+    case normal, large
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .normal: return tr("Normal", "Normal")
+        case .large: return tr("Amplia", "Wide")
+        }
+    }
+}
+
+enum TrailColor: String, CaseIterable, PrefValue, Identifiable {
+    case event, accent, rainbow
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .event: return tr("Según el aviso", "Per alert")
+        case .accent: return tr("Color de acento", "Accent color")
+        case .rainbow: return tr("Arcoíris", "Rainbow")
+        }
+    }
+}
+
 // MARK: - Ajustes
 
 final class Settings: ObservableObject {
@@ -203,12 +298,18 @@ final class Settings: ObservableObject {
     @Pref("virtualStyle") var virtualStyle: VirtualStyle = .notch
     @Pref("virtualVisibility") var virtualVisibility: VirtualVisibility = .always
     @Pref("hoverToOpen") var hoverToOpen = true
-    @Pref("hoverDelay") var hoverDelay = 0.12
     @Pref("haptics") var haptics = true
     @Pref("animationStyle") var animationStyle: AnimationStyle = .orbit
     @Pref("animationSpeed") var animationSpeed = 1.0
     @Pref("comet") var comet = true
     @Pref("ambientGlow") var ambientGlow = true
+    @Pref("glowIntensity") var glowIntensity = 0.7
+    @Pref("accentMode") var accentMode: AccentMode = .artwork
+    @Pref("customAccent") var customAccent = "#FF5C93"
+    @Pref("trailColor") var trailColor: TrailColor = .event
+    @Pref("islandSize") var islandSize: IslandSize = .normal
+    @Pref("roundness") var roundness = 1.0
+    @Pref("islandOutline") var islandOutline = true
     @Pref("language") var language: AppLanguage = .system
     @Pref("menuBarIcon") var menuBarIcon = true
     @Pref("swipePages") var swipePages = true
@@ -243,6 +344,16 @@ final class Settings: ObservableObject {
     @Pref("lockEnabled") var lockEnabled = true
     @Pref("lockScreenMedia") var lockScreenMedia = true
     @Pref("lockScreenLyrics") var lockScreenLyrics = true
+    @Pref("lockStyle") var lockStyle: LockStyle = .lyrics
+    @Pref("lockBackground") var lockBackground: LockBackground = .aurora
+    @Pref("lockMotion") var lockMotion = true
+    @Pref("lockClock") var lockClock = true
+    @Pref("lockClockStyle") var lockClockStyle: ClockStyle = .rounded
+    @Pref("lockLyricsSize") var lockLyricsSize = 34.0
+    @Pref("lockLyricsAlign") var lockLyricsAlign: TextAlign = .leading
+    @Pref("lockLyricsBlur") var lockLyricsBlur = true
+    @Pref("lockTilt") var lockTilt = true
+    @Pref("lockHintShown") var lockHintShown = false
 
     // Reproduciendo
     @Pref("musicEnabled") var musicEnabled = true
@@ -252,7 +363,7 @@ final class Settings: ObservableObject {
     @Pref("artworkFlip") var artworkFlip = true
     @Pref("hideWhenSourceActive") var hideWhenSourceActive = false
     @Pref("lyricsEnabled") var lyricsEnabled = true
-    @Pref("artworkAccent") var artworkAccent = true
+    @Pref("trackPeek") var trackPeek = true
 
     // Calendario
     @Pref("calendarEnabled") var calendarEnabled = true

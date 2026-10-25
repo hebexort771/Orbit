@@ -45,7 +45,7 @@ struct NotchMetrics: Equatable {
 
     /// Tamaño de la ventana transparente que contiene la isla.
     var canvasSize: CGSize {
-        let width = max(notchWidth + 2 * 128, 452) + 160
+        let width = max(notchWidth + 2 * 166, 524) + 160
         let height = notchHeight + topInset + 190 + 70
         return CGSize(width: width.rounded(), height: height.rounded())
     }

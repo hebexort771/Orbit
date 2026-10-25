@@ -196,7 +196,7 @@ final class IslandController {
             Haptics.tap()
             guard settings.hoverToOpen, !model.expanded else { return }
             hoverTask?.cancel()
-            let delay = max(0, settings.hoverDelay)
+            let delay = 0.06
             hoverTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 guard let self, !Task.isCancelled, self.model.hovering else { return }
@@ -288,6 +288,19 @@ final class IslandController {
             .sink { [weak self] _ in self?.updateLiveMusic() }
             .store(in: &bag)
 
+        // Canción nueva: la isla la anuncia un momento con su portada.
+        media.$track
+            .map { $0?.key }
+            .removeDuplicates()
+            .scan((nil, nil) as (String?, String?)) { pair, key in (pair.1, key) }
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] (pair: (String?, String?)) in
+                guard let self, pair.0 != nil, pair.1 != nil else { return }
+                self.announceTrack()
+            }
+            .store(in: &bag)
+
         services.battery.onEvent = { [weak self] event in
             guard let self, self.settings.batteryEnabled else { return }
             if case .low = event, !self.settings.batteryLow { return }
@@ -315,6 +328,14 @@ final class IslandController {
             self?.handleKey(key, fine: fine) ?? false
         }
         updateKeyTap()
+    }
+
+    private func announceTrack() {
+        let media = services.media
+        guard settings.trackPeek, settings.musicEnabled, media.isPlaying, !model.expanded,
+              let track = media.track else { return }
+        if settings.hideWhenSourceActive && media.sourceIsFrontmost { return }
+        model.show(.track(title: track.title, artist: track.artist), for: 3.2)
     }
 
     private func updateLiveMusic() {

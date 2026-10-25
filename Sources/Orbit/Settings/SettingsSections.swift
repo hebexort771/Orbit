@@ -28,35 +28,12 @@ struct GeneralSettings: View {
                 Text(tr("Abrir al pasar el cursor", "Open on hover"))
                 Text(tr("Si lo desactivas, haz clic en el notch para abrirlo", "When off, click the notch to open it"))
             }
-            if settings.hoverToOpen {
-                SliderRow(title: tr("Retraso al pasar el cursor", "Hover delay"), value: $settings.hoverDelay,
-                          range: 0...0.8, step: 0.05, format: { String(format: "%.2f s", $0) })
-            }
             Toggle(isOn: $settings.swipePages) {
                 Text(tr("Deslizar para cambiar de página", "Swipe to change pages"))
                 Text(tr("Desliza con dos dedos en el trackpad sobre la isla abierta", "Two-finger swipe over the open island"))
             }
             Toggle(tr("Respuesta háptica del trackpad", "Trackpad haptic feedback"), isOn: $settings.haptics)
             Toggle(tr("Icono en la barra de menús", "Menu bar icon"), isOn: $settings.menuBarIcon)
-        }
-
-        Section(tr("Animación", "Animation")) {
-            StyleCards(AnimationStyle.allCases, selection: $settings.animationStyle, title: { $0.title }) { style in
-                AnimationStylePreview(style: style)
-            }
-            Text(settings.animationStyle.subtitle)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            SliderRow(title: tr("Velocidad", "Speed"), value: $settings.animationSpeed, range: 0.6...1.6, step: 0.05,
-                      format: { String(format: "%.0f%%", $0 * 100) })
-            Toggle(isOn: $settings.comet) {
-                Text(tr("Estela orbital", "Orbit trail"))
-                Text(tr("Un destello de luz recorre la isla cuando llega algo nuevo", "A streak of light circles the island when something new arrives"))
-            }
-            Toggle(isOn: $settings.ambientGlow) {
-                Text(tr("Brillo ambiental", "Ambient glow"))
-                Text(tr("La isla brilla con el color de la portada o del aviso", "The island glows with the artwork or alert color"))
-            }
         }
 
         Section(tr("Pantallas", "Displays")) {
@@ -303,7 +280,10 @@ struct NowPlayingSettings: View {
         }
         Section(tr("Detalles", "Details")) {
             Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
-            Toggle(tr("Colores de la portada", "Artwork colors"), isOn: $settings.artworkAccent)
+            Toggle(isOn: $settings.trackPeek) {
+                Text(tr("Anunciar cada canción nueva", "Announce each new song"))
+                Text(tr("La isla muestra un momento la portada, el título y el artista", "The island briefly shows the artwork, title and artist"))
+            }
             Toggle(isOn: $settings.lyricsEnabled) {
                 Text(tr("Letras sincronizadas", "Synced lyrics"))
                 Text(tr("Desde LRCLIB, se buscan automáticamente", "From LRCLIB, fetched automatically"))
@@ -360,38 +340,248 @@ struct TraySettings: View {
 
 struct LockScreenSettings: View {
     @ObservedObject private var settings = Settings.shared
-    @StateObject private var card = LockCardState()
+    @ObservedObject private var demoMedia = Services.demo.media
+    @StateObject private var state = LockScreenState()
 
     var body: some View {
         Section {
-            ZStack {
-                PreviewWallpaper()
-                VStack(spacing: 2) {
-                    Text(tr("viernes, 20 de junio", "Friday, June 20"))
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("9:41")
-                        .font(.system(size: 54, weight: .bold, design: .rounded))
+            LockPreviewBox(state: state)
+            HStack(alignment: .firstTextBaseline) {
+                Text(state.style.subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    AppDelegate.shared?.previewLockScreen()
+                } label: {
+                    Label(tr("Ver en pantalla completa", "View full screen"), systemImage: "arrow.up.left.and.arrow.down.right")
                 }
-                .foregroundStyle(.white.opacity(0.9))
-                .frame(maxHeight: .infinity, alignment: .top)
-                .padding(.top, 14)
-                LockMusicCard(state: card)
-                    .services(Services.demo)
-                    .scaleEffect(0.62)
-                    .frame(width: 290, height: 230)
-                    .offset(y: 46)
             }
-            .frame(height: 330)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .onAppear { card.visible = true }
         }
+
         Section {
             Toggle(isOn: $settings.lockScreenMedia) {
                 Text(tr("Reproductor en la pantalla bloqueada", "Player on the lock screen"))
-                Text(tr("Controla la música sin desbloquear tu Mac", "Control music without unlocking your Mac"))
+                Text(tr("Controla la música y lee la letra sin desbloquear tu Mac", "Control music and read lyrics without unlocking your Mac"))
             }
-            Toggle(tr("Letras en la pantalla bloqueada", "Lyrics on the lock screen"), isOn: $settings.lockScreenLyrics)
         }
+
+        Section(tr("Estilo", "Style")) {
+            StyleCards(LockStyle.allCases,
+                       selection: Binding(get: { settings.lockStyle },
+                                          set: { value in
+                                              settings.lockStyle = value
+                                              withAnimation(.spring(response: 0.66, dampingFraction: 0.84)) { state.style = value }
+                                          }),
+                       title: { $0.title }) { style in
+                LockStyleThumb(style: style, accent: demoMedia.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .padding(4)
+            }
+            Label(tr("En la pantalla bloqueada, toca la portada para pasar al siguiente estilo.",
+                     "On the lock screen, click the artwork to switch to the next style."), systemImage: "hand.tap")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+
+        Section(tr("Fondo", "Background")) {
+            Picker(tr("Fondo", "Background"), selection: $settings.lockBackground) {
+                ForEach(LockBackground.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Toggle(isOn: $settings.lockMotion) {
+                Text(tr("Colores en movimiento", "Moving colors"))
+                Text(tr("Los colores de la portada se mueven despacio, como en Apple Music", "The artwork colors drift slowly, like Apple Music"))
+            }
+            .disabled(settings.lockBackground != .aurora)
+        }
+
+        Section(tr("Reloj", "Clock")) {
+            Toggle(isOn: $settings.lockClock) {
+                Text(tr("Reloj de Orbit", "Orbit clock"))
+                Text(tr("Si ves dos relojes en tu pantalla bloqueada, desactívalo", "If you see two clocks on your lock screen, turn this off"))
+            }
+            Picker(tr("Tipo de letra", "Typeface"), selection: $settings.lockClockStyle) {
+                ForEach(ClockStyle.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(!settings.lockClock)
+        }
+
+        Section(tr("Letra", "Lyrics")) {
+            Toggle(tr("Mostrar la letra", "Show lyrics"), isOn: $settings.lockScreenLyrics)
+            SliderRow(title: tr("Tamaño", "Size"), value: $settings.lockLyricsSize, range: 24...48, step: 1,
+                      format: { String(format: "%.0f pt", $0) })
+            Picker(tr("Alineación", "Alignment"), selection: $settings.lockLyricsAlign) {
+                ForEach(TextAlign.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Toggle(isOn: $settings.lockLyricsBlur) {
+                Text(tr("Desenfocar las otras líneas", "Blur the other lines"))
+                Text(tr("Solo la línea que suena queda nítida", "Only the line being sung stays sharp"))
+            }
+        }
+
+        Section(tr("Portada", "Artwork")) {
+            Toggle(isOn: $settings.lockTilt) {
+                Text(tr("Inclinar con el cursor", "Tilt with the pointer"))
+                Text(tr("La portada se inclina en 3D y un brillo la recorre al mover el ratón", "The artwork tilts in 3D with a moving shine as you move the pointer"))
+            }
+            Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
+        }
+    }
+}
+
+/// La pantalla bloqueada real, en miniatura.
+struct LockPreviewBox: View {
+    @ObservedObject var state: LockScreenState
+    private let base = CGSize(width: 1470, height: 956)
+
+    var body: some View {
+        GeometryReader { geo in
+            let scale = geo.size.width / base.width
+            ZStack(alignment: .topLeading) {
+                PreviewWallpaper()
+                LockScreenView(state: state, size: base)
+                    .services(Services.demo)
+                    .scaleEffect(scale, anchor: .topLeading)
+                    .frame(width: base.width * scale, height: base.height * scale, alignment: .topLeading)
+            }
+        }
+        .aspectRatio(base.width / base.height, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
+        .padding(.vertical, 4)
+        .task {
+            state.syncStyle()
+            state.phase = .hidden
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            state.phase = .shown
+        }
+    }
+}
+
+// MARK: - Apariencia
+
+struct AppearanceSettings: View {
+    @ObservedObject private var settings = Settings.shared
+    @ObservedObject private var demoMedia = Services.demo.media
+
+    var body: some View {
+        Section {
+            IslandPreview(steps: [.music(1.6), .transient(.battery(.charging(80)), 2.4), .expanded(.music, 3.2),
+                                  .transient(.track(title: "Luz de Neón", artist: "Aurora Vale"), 2.6)],
+                          height: 214, scale: 0.88)
+            TryButton { island?.demo(.battery(.charging(80))) }
+        }
+
+        Section(tr("Color de acento", "Accent color")) {
+            AccentPicker()
+            Text(accentCaption)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+
+        Section(tr("Luz", "Light")) {
+            Toggle(isOn: $settings.comet) {
+                Text(tr("Estela orbital", "Orbit trail"))
+                Text(tr("Un destello recorre el borde de la isla cuando llega algo nuevo", "A streak of light runs along the island when something new arrives"))
+            }
+            Picker(tr("Color de la estela", "Trail color"), selection: $settings.trailColor) {
+                ForEach(TrailColor.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .disabled(!settings.comet)
+            Toggle(isOn: $settings.ambientGlow) {
+                Text(tr("Brillo ambiental", "Ambient glow"))
+                Text(tr("La isla brilla con el color de la portada o del aviso", "The island glows with the artwork or alert color"))
+            }
+            SliderRow(title: tr("Intensidad del brillo", "Glow intensity"), value: $settings.glowIntensity, range: 0.2...1, step: 0.05,
+                      format: { String(format: "%.0f%%", $0 * 100) })
+                .disabled(!settings.ambientGlow)
+        }
+
+        Section(tr("Forma de la isla", "Island shape")) {
+            Picker(tr("Tamaño al abrirse", "Open size"), selection: $settings.islandSize) {
+                ForEach(IslandSize.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            SliderRow(title: tr("Redondez", "Roundness"), value: $settings.roundness, range: 0.5...1.4, step: 0.05,
+                      format: { String(format: "%.0f%%", $0 * 100) })
+            Toggle(isOn: $settings.islandOutline) {
+                Text(tr("Borde sutil", "Subtle edge"))
+                Text(tr("Una línea fina para que la isla abierta se distinga en fondos oscuros", "A thin line so the open island stands out on dark wallpapers"))
+            }
+        }
+
+        Section(tr("Animación", "Animation")) {
+            StyleCards(AnimationStyle.allCases, selection: $settings.animationStyle, title: { $0.title }) { style in
+                AnimationStylePreview(style: style)
+            }
+            Text(settings.animationStyle.subtitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            SliderRow(title: tr("Velocidad", "Speed"), value: $settings.animationSpeed, range: 0.6...1.6, step: 0.05,
+                      format: { String(format: "%.0f%%", $0 * 100) })
+        }
+    }
+
+    private var accentCaption: String {
+        switch settings.accentMode {
+        case .artwork: return tr("Cada canción tiñe la isla con el color de su portada.", "Each song tints the island with its artwork color.")
+        case .system: return tr("Usa el color de acento de Ajustes del Sistema.", "Uses the accent color from System Settings.")
+        case .custom: return tr("Tu color se usa en la barra de progreso, la onda, los controles y el brillo.", "Your color is used for the progress bar, waveform, controls and glow.")
+        }
+    }
+}
+
+/// Fila de colores como la de Ajustes del Sistema → Apariencia.
+struct AccentPicker: View {
+    @ObservedObject private var settings = Settings.shared
+
+    var body: some View {
+        HStack(spacing: 10) {
+            swatch(selected: settings.accentMode == .artwork,
+                   fill: AnyShapeStyle(AngularGradient(colors: [.pink, .orange, .yellow, .green, .cyan, .blue, .purple, .pink], center: .center)),
+                   help: tr("De la portada", "From artwork")) { settings.accentMode = .artwork }
+            swatch(selected: settings.accentMode == .system,
+                   fill: AnyShapeStyle(Color(nsColor: .controlAccentColor)),
+                   help: tr("Del sistema", "System")) { settings.accentMode = .system }
+            Divider().frame(height: 22)
+            ForEach(Color.accentPresets, id: \.0) { preset in
+                swatch(selected: settings.accentMode == .custom && settings.customAccent.uppercased() == preset.0,
+                       fill: AnyShapeStyle(Color(hex: preset.0) ?? .white),
+                       help: preset.1) {
+                    settings.customAccent = preset.0
+                    settings.accentMode = .custom
+                }
+            }
+            ColorPicker("", selection: Binding(get: { Color(hex: settings.customAccent) ?? .pink },
+                                               set: { color in
+                                                   settings.customAccent = color.hexString
+                                                   settings.accentMode = .custom
+                                               }),
+                        supportsOpacity: false)
+                .labelsHidden()
+                .help(tr("Otro color", "Another color"))
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func swatch(selected: Bool, fill: AnyShapeStyle, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { action() }
+        }) {
+            Circle()
+                .fill(fill)
+                .frame(width: 22, height: 22)
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
+                .overlay(Circle().strokeBorder(Color.white, lineWidth: selected ? 2.5 : 0).padding(2))
+                .shadow(color: .black.opacity(selected ? 0.25 : 0), radius: 3, y: 1)
+                .scaleEffect(selected ? 1.12 : 1)
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
 

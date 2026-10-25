@@ -51,7 +51,8 @@ enum Snapshot {
             Case(name: "17-welcome") { $0.show(.welcome, for: nil) },
             Case(name: "18-floating-music", floating: true) { $0.liveMusic = true },
             Case(name: "19-floating-expanded", floating: true) { $0.page = .music; $0.expanded = true },
-            Case(name: "20-floating-volume", floating: true) { $0.show(.volume(level: 0.3, muted: false, output: .airpodsPro), for: nil) }
+            Case(name: "20-floating-volume", floating: true) { $0.show(.volume(level: 0.3, muted: false, output: .airpodsPro), for: nil) },
+            Case(name: "20b-track") { $0.show(.track(title: "Luz de Neón", artist: "Aurora Vale"), for: nil) }
         ]
 
         for item in cases {
@@ -63,28 +64,43 @@ enum Snapshot {
             write(view, to: directory.appendingPathComponent(item.name + ".png"))
         }
 
-        let card = LockCardState()
-        card.visible = true
-        let lock = ZStack {
-            PreviewWallpaper()
-            LockMusicCard(state: card)
+        for (index, style) in LockStyle.allCases.enumerated() {
+            let state = LockScreenState()
+            state.style = style
+            state.phase = .shown
+            let size = CGSize(width: 1470, height: 956)
+            let lock = ZStack(alignment: .topLeading) {
+                PreviewWallpaper()
+                LockScreenView(state: state, size: size)
+            }
+            .frame(width: size.width, height: size.height)
+            .services(services)
+            .environment(\.orbitStatic, true)
+            write(lock, to: directory.appendingPathComponent("21-lock-\(index + 1)-\(style.rawValue).png"), scale: 1)
         }
-        .frame(width: 520, height: 420)
-        .services(services)
-        .environment(\.orbitStatic, true)
-        write(lock, to: directory.appendingPathComponent("21-lock-screen-card.png"))
+
+        let thumbs = HStack(spacing: 14) {
+            ForEach(LockStyle.allCases) { style in
+                LockStyleThumb(style: style, accent: services.media.accent)
+                    .frame(width: 120, height: 76)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .padding(20)
+        .background(Color.white)
+        write(thumbs, to: directory.appendingPathComponent("22-lock-thumbs.png"))
 
         let icons = HStack(spacing: 18) {
             ForEach(SettingsSection.allCases) { SettingsIcon(section: $0, size: 40) }
         }
         .padding(20)
         .background(Color.white)
-        write(icons, to: directory.appendingPathComponent("22-settings-icons.png"))
+        write(icons, to: directory.appendingPathComponent("23-settings-icons.png"))
     }
 
-    private static func write<V: View>(_ view: V, to url: URL) {
+    private static func write<V: View>(_ view: V, to url: URL, scale: CGFloat = 2) {
         let renderer = ImageRenderer(content: view)
-        renderer.scale = 2
+        renderer.scale = scale
         guard let image = renderer.cgImage else {
             NSLog("Orbit snapshot: no se pudo dibujar \(url.lastPathComponent)")
             return
@@ -112,6 +128,12 @@ enum Snapshot {
         await pause(1.2)
         screen(to: directory, "33-live-expanded")
         island.collapse()
+
+        delegate.previewLockScreen()
+        await pause(2.4)
+        screen(to: directory, "34-live-lock-preview")
+        delegate.lockScreenController?.closePreview()
+        await pause(0.5)
 
         for section in SettingsSection.allCases {
             delegate.showSettings(section)

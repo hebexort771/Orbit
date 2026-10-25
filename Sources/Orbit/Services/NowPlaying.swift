@@ -20,6 +20,8 @@ final class NowPlayingService: ObservableObject {
     @Published private(set) var artwork: NSImage?
     @Published private(set) var artworkSerial = 0
     @Published private(set) var accent: Color = .white
+    @Published private(set) var palette: [Color] = []
+    @Published private(set) var softArtwork: NSImage?
     @Published private(set) var shuffleOn = false
     @Published private(set) var repeatMode = 1
     @Published private(set) var lyrics: [LyricLine] = []
@@ -33,6 +35,8 @@ final class NowPlayingService: ObservableObject {
     private var restarts: [Date] = []
     private var lyricsTask: Task<Void, Never>?
     private var workspaceObserver: NSObjectProtocol?
+    private var artworkAccent: Color = .white
+    private var settingsSink: AnyCancellable?
     let isDemo: Bool
 
     enum LyricsState: Equatable { case none, loading, ready, missing }
@@ -40,6 +44,23 @@ final class NowPlayingService: ObservableObject {
     init(demo: Bool = false) {
         isDemo = demo
         if demo { loadDemo() }
+        settingsSink = Settings.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.resolveAccent() }
+        resolveAccent()
+    }
+
+    /// Aplica el modo de color elegido en Ajustes → Apariencia.
+    func resolveAccent() {
+        let settings = Settings.shared
+        let color: Color
+        switch settings.accentMode {
+        case .artwork: color = artworkAccent
+        case .system: color = Color(nsColor: .controlAccentColor)
+        case .custom: color = Color(hex: settings.customAccent) ?? .pink
+        }
+        if color != accent { accent = color }
+        if !isDemo { AccentStore.current = color }
     }
 
     func start() {
@@ -66,6 +87,7 @@ final class NowPlayingService: ObservableObject {
         guard let track else { return 0 }
         var value = elapsedAnchor
         if isPlaying { value += date.timeIntervalSince(anchorDate) * max(rate, 0) }
+        if isDemo && value > 116 { value = 44 + (value - 44).truncatingRemainder(dividingBy: 72) }
         if track.duration > 0 { value = min(value, track.duration) }
         return max(0, value)
     }
@@ -230,11 +252,16 @@ final class NowPlayingService: ObservableObject {
     private func setArtwork(_ image: NSImage?) {
         artwork = image
         artworkSerial += 1
-        if let image, Settings.shared.artworkAccent, let color = ArtworkPalette.accent(from: image) {
-            accent = Color(nsColor: color)
+        if let image {
+            artworkAccent = ArtworkPalette.accent(from: image).map { Color(nsColor: $0) } ?? .white
+            palette = ArtworkPalette.palette(from: image).map { Color(nsColor: $0) }
+            softArtwork = ArtworkPalette.soft(from: image)
         } else {
-            accent = .white
+            artworkAccent = .white
+            palette = []
+            softArtwork = nil
         }
+        resolveAccent()
     }
 
     // MARK: Letras
@@ -268,18 +295,26 @@ final class NowPlayingService: ObservableObject {
     private func loadDemo() {
         track = TrackInfo(title: "Luz de Neón", artist: "Aurora Vale", album: "Órbitas", duration: 214, bundleID: "com.apple.Music")
         isPlaying = true
-        elapsedAnchor = 73
+        elapsedAnchor = 69
         anchorDate = Date()
         let image = DemoArt.make()
         artwork = image
         artworkSerial = 1
-        accent = Color(nsColor: ArtworkPalette.accent(from: image) ?? .systemPink)
+        artworkAccent = Color(nsColor: ArtworkPalette.accent(from: image) ?? .systemPink)
+        accent = artworkAccent
+        palette = ArtworkPalette.palette(from: image).map { Color(nsColor: $0) }
+        softArtwork = ArtworkPalette.soft(from: image)
         lyrics = [
+            LyricLine(time: 46, text: "Las calles brillan cuando pasas"),
+            LyricLine(time: 53, text: "Y el cielo cambia de color"),
             LyricLine(time: 60, text: "Brillas aunque apague la ciudad"),
             LyricLine(time: 66, text: "Giro a tu alrededor sin pensar"),
             LyricLine(time: 72, text: "Somos luz de neón en la oscuridad"),
             LyricLine(time: 79, text: "Y no quiero volver a aterrizar"),
-            LyricLine(time: 86, text: "Una órbita más, una vez más")
+            LyricLine(time: 86, text: ""),
+            LyricLine(time: 94, text: "Una órbita más, una vez más"),
+            LyricLine(time: 101, text: "Tu voz es la señal que sigo al regresar"),
+            LyricLine(time: 108, text: "Y en la noche te vuelvo a encontrar")
         ]
         lyricsState = .ready
     }

@@ -2,12 +2,13 @@ import SwiftUI
 import AppKit
 
 enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case general, battery, connectivity, display, sound, lock, nowPlaying, calendar, tray, lockScreen, about
+    case general, appearance, battery, connectivity, display, sound, lock, nowPlaying, calendar, tray, lockScreen, about
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .general: return tr("General", "General")
+        case .appearance: return tr("Apariencia", "Appearance")
         case .battery: return tr("Batería", "Battery")
         case .connectivity: return tr("Conectividad", "Connectivity")
         case .display: return tr("Pantalla", "Display")
@@ -24,6 +25,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     var symbol: String {
         switch self {
         case .general: return "gearshape.fill"
+        case .appearance: return "paintpalette.fill"
         case .battery: return "battery.75percent"
         case .connectivity: return "airpodspro"
         case .display: return "sun.max.fill"
@@ -40,6 +42,7 @@ enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     var color: Color {
         switch self {
         case .general: return Color(white: 0.55)
+        case .appearance: return Color(red: 0.98, green: 0.36, blue: 0.56)
         case .battery: return .green
         case .connectivity: return .blue
         case .display: return .cyan
@@ -83,6 +86,7 @@ struct SettingsRoot: View {
             List(selection: $router.selection) {
                 Section {
                     row(.general)
+                    row(.appearance)
                 }
                 Section(tr("Notificaciones", "Notifications")) {
                     ForEach(notifications) { row($0) }
@@ -124,6 +128,7 @@ struct SectionDetail: View {
         Form {
             switch section {
             case .general: GeneralSettings()
+            case .appearance: AppearanceSettings()
             case .battery: BatterySettings()
             case .connectivity: ConnectivitySettings()
             case .display: DisplaySettings()

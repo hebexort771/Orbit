@@ -192,23 +192,30 @@ struct BatteryGlyph: View {
     var color: Color
     var charging: Bool
     var width: CGFloat = 25
+    var animated = true
+    @Environment(\.orbitStatic) private var isStatic
+    @State private var filled = false
 
     var body: some View {
         let height = width * 0.5
         let inner = width - 4.4
+        let shown = filled || isStatic || !animated
+        let fraction = CGFloat(min(100, max(0, level))) / 100
         HStack(spacing: 1.2) {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: height * 0.32, style: .continuous)
                     .strokeBorder(Color.white.opacity(0.42), lineWidth: 1.1)
                 RoundedRectangle(cornerRadius: height * 0.18, style: .continuous)
-                    .fill(color)
-                    .frame(width: max(2.5, inner * CGFloat(min(100, max(0, level))) / 100), height: height - 4.4)
+                    .fill(LinearGradient(colors: [color.opacity(0.85), color], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: max(2.5, inner * (shown ? fraction : fraction * 0.12)), height: height - 4.4)
+                    .shadow(color: charging ? color.opacity(0.8) : .clear, radius: 3)
                     .padding(.leading, 2.2)
                 if charging {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: height * 0.72, weight: .heavy))
                         .foregroundStyle(.white)
                         .shadow(color: .black.opacity(0.6), radius: 1)
+                        .symbolEffect(.pulse, options: .repeating, isActive: !isStatic && animated)
                         .frame(width: width)
                 }
             }
@@ -216,6 +223,10 @@ struct BatteryGlyph: View {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(Color.white.opacity(0.42))
                 .frame(width: 1.8, height: height * 0.36)
+        }
+        .onAppear {
+            guard animated, !isStatic else { return }
+            withAnimation(.spring(response: 1.1, dampingFraction: 0.82).delay(0.2)) { filled = true }
         }
     }
 }

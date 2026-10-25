@@ -83,6 +83,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     var settingsWindowNumber: Int? { settingsWindow?.window.windowNumber }
 
+    /// Muestra la pantalla bloqueada de Orbit a pantalla completa, sin bloquear el Mac.
+    func previewLockScreen() {
+        lockScreen?.preview()
+    }
+
+    var lockScreenController: LockScreenController? { lockScreen }
+
     private func settingsClosed() {
         NSApp.setActivationPolicy(.accessory)
     }

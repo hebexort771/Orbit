@@ -45,7 +45,7 @@ struct IslandBody: View {
             content
                 .clipShape(shape)
             IslandEdge(island: shape)
-                .stroke(Color.white.opacity(presentation.isExpanded ? 0.09 : 0), lineWidth: 1)
+                .stroke(Color.white.opacity(presentation.isExpanded && settings.islandOutline ? 0.09 : 0), lineWidth: 1)
                 .allowsHitTesting(false)
             CometOverlay(island: shape, request: model.comet)
                 .allowsHitTesting(false)
@@ -92,17 +92,21 @@ struct IslandBody: View {
 
     private var glowOpacity: Double {
         guard settings.ambientGlow else { return 0 }
+        let intensity = max(0, min(1, settings.glowIntensity)) / 0.7
+        let base: Double
         switch presentation {
-        case .music: return media.isPlaying ? 0.4 : 0.14
-        case .expanded(.music): return media.hasTrack ? 0.45 : 0
+        case .music: base = media.isPlaying ? 0.4 : 0.14
+        case .expanded(.music): base = media.hasTrack ? 0.45 : 0
         case .transient(let kind):
             switch kind {
-            case .battery, .bluetooth, .calendar, .welcome: return 0.36
-            case .lock(let locked): return locked ? 0 : 0.3
-            default: return 0
+            case .battery, .bluetooth, .calendar, .welcome: base = 0.36
+            case .track: base = 0.45
+            case .lock(let locked): base = locked ? 0 : 0.3
+            default: base = 0
             }
-        default: return 0
+        default: base = 0
         }
+        return min(0.85, base * intensity)
     }
 
     private var glow: some View {
@@ -195,12 +199,16 @@ struct CometOverlay: View {
 
     private func trails(_ frame: CometFrame) -> some View {
         let color = request.color
+        let rainbow = LinearGradient(colors: [.red, .orange, .yellow, .green, .cyan, .blue, .purple, .pink],
+                                     startPoint: .leading, endPoint: .trailing)
+        let glow: AnyShapeStyle = request.rainbow ? AnyShapeStyle(rainbow.opacity(0.45)) : AnyShapeStyle(color.opacity(0.35))
+        let body: AnyShapeStyle = request.rainbow ? AnyShapeStyle(rainbow) : AnyShapeStyle(color.opacity(0.85))
         return ZStack {
             CometTrail(island: island, phase: frame.phase, length: 0.36)
-                .stroke(color.opacity(0.35), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .stroke(glow, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .blur(radius: 5)
             CometTrail(island: island, phase: frame.phase, length: 0.2)
-                .stroke(color.opacity(0.85), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                .stroke(body, style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
                 .blur(radius: 1)
             CometTrail(island: island, phase: frame.phase, length: 0.06)
                 .stroke(Color.white, style: StrokeStyle(lineWidth: 2, lineCap: .round))
@@ -332,6 +340,10 @@ struct TransientContent: View {
                 .font(.system(size: 14, weight: .semibold))
         case .welcome:
             OrbitMark(size: 18)
+        case .track:
+            ArtworkView(size: model.metrics.notchHeight - 12, radius: 6)
+                .shadow(color: AccentStore.current.opacity(0.5), radius: 5)
+                .padding(.leading, -4)
         }
     }
 
@@ -365,6 +377,9 @@ struct TransientContent: View {
             Text("+\(count)").font(label).contentTransition(.numericText(value: Double(count)))
         case .welcome:
             Text(tr("Hola", "Hello")).font(label)
+        case .track:
+            Waveform(playing: true, style: settings.waveformStyle, color: AccentStore.current, bars: 4, barWidth: 2.6)
+                .frame(width: 17, height: 13)
         }
     }
 
@@ -380,6 +395,17 @@ struct TransientContent: View {
             Text(tr("Pasa el cursor por aquí", "Hover here to open"))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.65))
+        case .track(let title, let artist):
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(artist)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            .lineLimit(1)
+            .padding(.bottom, 4)
         default:
             EmptyView()
         }

@@ -65,6 +65,7 @@ enum TransientKind: Equatable {
     case calendar(title: String, minutes: Int, color: Color)
     case tray(count: Int)
     case welcome
+    case track(title: String, artist: String)
 
     var family: String {
         switch self {
@@ -76,6 +77,7 @@ enum TransientKind: Equatable {
         case .calendar: return "calendar"
         case .tray: return "tray"
         case .welcome: return "welcome"
+        case .track: return "track"
         }
     }
 
@@ -95,6 +97,7 @@ enum TransientKind: Equatable {
         case .calendar(_, _, let color): return color
         case .tray: return .orbitBlue
         case .welcome: return .orbitViolet
+        case .track: return AccentStore.current
         }
     }
 
@@ -113,6 +116,7 @@ enum TransientKind: Equatable {
         case .calendar: return 80
         case .tray: return 64
         case .welcome: return 74
+        case .track: return 46
         }
     }
 
@@ -120,6 +124,7 @@ enum TransientKind: Equatable {
     var extraHeight: CGFloat {
         switch self {
         case .calendar, .welcome: return 30
+        case .track: return 46
         default: return 0
         }
     }
@@ -168,6 +173,7 @@ struct IslandLayout: Equatable {
 struct CometRequest: Equatable {
     var serial = 0
     var color: Color = .white
+    var rainbow = false
 }
 
 @MainActor
@@ -244,8 +250,10 @@ final class IslandModel: ObservableObject {
     }
 
     func fireComet(_ color: Color) {
-        guard Settings.shared.comet else { return }
-        comet = CometRequest(serial: comet.serial + 1, color: color)
+        let settings = Settings.shared
+        guard settings.comet else { return }
+        let tint = settings.trailColor == .accent ? AccentStore.current : color
+        comet = CometRequest(serial: comet.serial + 1, color: tint, rainbow: settings.trailColor == .rainbow)
     }
 
     func select(_ page: IslandPage) {
@@ -268,13 +276,14 @@ final class IslandModel: ObservableObject {
         let h = metrics.notchHeight
         let floating = metrics.floating
 
+        let round = CGFloat(max(0.5, min(1.4, Settings.shared.roundness)))
         func compact(_ wing: CGFloat, extra: CGFloat = 0) -> IslandLayout {
             let tall = extra > 0
             return IslandLayout(width: n + 2 * wing,
                                 height: h + extra,
                                 ear: floating ? 0 : 7,
-                                bottom: floating ? (tall ? 22 : h / 2) : (tall ? 20 : 12),
-                                topCorner: floating ? (tall ? 22 : h / 2) : 0)
+                                bottom: floating ? (tall ? 22 * round : h / 2) : (tall ? 20 : 12) * round,
+                                topCorner: floating ? (tall ? 22 * round : h / 2) : 0)
         }
 
         switch presentation {
@@ -291,7 +300,8 @@ final class IslandModel: ObservableObject {
         case .transient(let kind):
             return compact(kind.wing, extra: kind.extraHeight)
         case .expanded(let page):
-            let width = max(n + 2 * 128, 452)
+            let large = Settings.shared.islandSize == .large
+            let width = large ? max(n + 2 * 166, 524) : max(n + 2 * 128, 452)
             let extra: CGFloat
             switch page {
             case .music: extra = 144
@@ -299,7 +309,7 @@ final class IslandModel: ObservableObject {
             case .tray: extra = 130
             }
             return IslandLayout(width: width, height: h + extra, ear: floating ? 0 : 14,
-                                bottom: 32, topCorner: floating ? 32 : 0)
+                                bottom: 32 * round, topCorner: floating ? 32 * round : 0)
         }
     }
 
