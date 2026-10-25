@@ -105,6 +105,25 @@ enum Snapshot {
             }
         }
 
+        // Inicio de la canción (antes de la primera línea): los puntos van en su propia fila.
+        services.media.demoSeek(to: 12)
+        for style in [LockStyle.lyrics, .karaoke] {
+            let state = LockScreenState()
+            state.style = style
+            state.phase = .shown
+            let size = CGSize(width: 1710, height: 1112)
+            let lock = ZStack(alignment: .topLeading) {
+                PreviewWallpaper()
+                LockScreenView(state: state, size: size, safeTop: 32)
+                LoginMock(size: size, safeTop: 32, notchWidth: 185)
+            }
+            .frame(width: size.width, height: size.height)
+            .services(services)
+            .environment(\.orbitStatic, true)
+            write(lock, to: directory.appendingPathComponent("25-intro-\(style.rawValue).png"), scale: 1)
+        }
+        services.media.demoSeek(to: 69)
+
         let thumbs = HStack(spacing: 14) {
             ForEach(LockStyle.allCases) { style in
                 LockStyleThumb(style: style, accent: services.media.accent)

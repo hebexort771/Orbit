@@ -301,7 +301,7 @@ struct LockLayout {
         clockY = clockTop + clockHeight / 2
         // Zona para el contenido: entre el reloj y la foto de usuario/contraseña de macOS.
         let top = clock ? clockTop + clockHeight + H * 0.045 : safeTop + H * 0.1
-        let floor = H * 0.755
+        let floor = H * 0.725
         let room = max(240, floor - top)
         var style = style
         if !hasLyrics && (style == .lyrics || style == .karaoke) { style = .cover }
@@ -319,14 +319,19 @@ struct LockLayout {
             let side = max(150, min(W * 0.22, room - cardH - 18))
             let groupH = side + 18 + cardH
             let y0 = top + max(0, (room - groupH) / 2)
-            let cx = W * 0.285
-            art = CGRect(x: cx - side / 2, y: y0, width: side, height: side)
+            // Portada + espacio + letra forman un solo bloque centrado en la pantalla.
+            let gap = W * 0.06
+            let lyricsW = min(W * 0.4, 640)
+            let x0 = (W - (side + gap + lyricsW)) / 2
+            art = CGRect(x: x0, y: y0, width: side, height: side)
             artRadius = side * 0.07
-            card = CGRect(x: art.minX - 4, y: art.maxY + 18, width: side + 8, height: cardH)
+            card = CGRect(x: art.minX, y: art.maxY + 18, width: side, height: cardH)
             cardKind = .under
-            cardRadius = 24
-            let x = W * 0.47
-            lyrics = CGRect(x: x, y: top - H * 0.02, width: min(W * 0.42, 720), height: floor - top + H * 0.01)
+            cardRadius = 22
+            // La letra ocupa la misma altura que portada + controles; la línea que suena queda a la altura de la portada.
+            let lyricsTop = art.minY - 28
+            lyrics = CGRect(x: art.maxX + gap, y: lyricsTop, width: lyricsW, height: card.maxY + 16 - lyricsTop)
+            lyricsAnchor = min(0.4, (art.midY - lyricsTop) / max(1, card.maxY + 16 - lyricsTop))
         case .cover:
             let cardH: CGFloat = 156
             let side = max(150, min(W * 0.23, (room - cardH) / 1.3))
@@ -379,6 +384,7 @@ struct LockScreenView: View {
     @ObservedObject private var settings = Settings.shared
     @Environment(\.orbitStatic) private var isStatic
     @State private var tilt: CGSize = .zero
+    @State private var straighten: Task<Void, Never>?
 
     private var morph: Animation { .spring(response: 0.66, dampingFraction: 0.84) }
 
@@ -445,12 +451,23 @@ struct LockScreenView: View {
         .environment(\.colorScheme, .dark)
         .onContinuousHover { phase in
             guard settings.lockTilt else { return }
+            let art = layout.art
             switch phase {
-            case .active(let point):
-                let next = CGSize(width: (point.x / max(1, size.width) - 0.5) * 2, height: (point.y / max(1, size.height) - 0.5) * 2)
+            case .active(let point) where art.insetBy(dx: -30, dy: -30).contains(point):
+                let next = CGSize(width: max(-1, min(1, (point.x - art.midX) / (art.width / 2 + 30))),
+                                  height: max(-1, min(1, (point.y - art.midY) / (art.height / 2 + 30))))
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { tilt = next }
-            case .ended:
-                withAnimation(.spring(response: 0.8, dampingFraction: 0.7)) { tilt = .zero }
+                straighten?.cancel()
+                straighten = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.spring(response: 0.9, dampingFraction: 0.75)) { tilt = .zero }
+                }
+            default:
+                straighten?.cancel()
+                if tilt != .zero {
+                    withAnimation(.spring(response: 0.8, dampingFraction: 0.75)) { tilt = .zero }
+                }
             }
         }
     }
@@ -541,8 +558,8 @@ struct LockBackdrop: View {
         .frame(width: size.width, height: size.height)
         .clipped()
         // Abajo se desvanece para dejar ver tu foto y el campo de contraseña.
-        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.74),
-                                     .init(color: .black.opacity(0.35), location: 0.86), .init(color: .clear, location: 0.97)],
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.75),
+                                     .init(color: .black.opacity(0.55), location: 0.85), .init(color: .clear, location: 0.98)],
                              startPoint: .top, endPoint: .bottom))
         .allowsHitTesting(false)
     }
@@ -726,8 +743,8 @@ struct LockArtwork: View {
         }
         .scaleEffect(media.isPlaying ? 1 : 0.86)
         .animation(.spring(response: 0.55, dampingFraction: 0.72), value: media.isPlaying)
-        .rotation3DEffect(.degrees(Double(-tilt.height) * 7), axis: (x: 1, y: 0, z: 0), perspective: 0.5)
-        .rotation3DEffect(.degrees(Double(tilt.width) * 9), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+        .rotation3DEffect(.degrees(Double(-tilt.height) * 4), axis: (x: 1, y: 0, z: 0), perspective: 0.3)
+        .rotation3DEffect(.degrees(Double(tilt.width) * 5), axis: (x: 0, y: 1, z: 0), perspective: 0.3)
         .opacity(leaving ? 0 : (shown ? 1 : 0))
         .scaleEffect(shown || leaving ? 1 : 0.72)
         .blur(radius: shown || leaving ? 0 : 18)
@@ -915,17 +932,21 @@ struct LockLyrics: View {
         for h in heights { ys.append(y); y += h + gap }
         let focus = max(0, current)
         let focusHeight = heights.isEmpty ? 0 : heights[min(focus, heights.count - 1)]
-        let base = size.height * anchor - (ys.isEmpty ? 0 : ys[min(focus, ys.count - 1)]) - focusHeight / 2
+        let intro = current < 0 && (lyrics.first?.time ?? 0) > 2.5
+        let dotsHeight = fontSize * 1.1
+        let base = intro
+            ? size.height * anchor + dotsHeight / 2 + gap
+            : size.height * anchor - (ys.isEmpty ? 0 : ys[min(focus, ys.count - 1)]) - focusHeight / 2
         let first = max(0, focus - (compact ? 1 : 4))
         let last = min(lyrics.count - 1, focus + (compact ? 2 : 8))
         let textAlign: TextAlignment = align == .center ? .center : .leading
         let frameAlign: Alignment = align == .center ? .top : .topLeading
 
         return ZStack(alignment: frameAlign) {
-            if current < 0, let firstLine = lyrics.first, firstLine.time > 2.5 {
+            if intro, let firstLine = lyrics.first {
                 LyricDots(progress: time / firstLine.time, size: fontSize)
                     .frame(width: size.width, alignment: align == .center ? .center : .leading)
-                    .offset(y: size.height * anchor - fontSize)
+                    .offset(y: size.height * anchor - dotsHeight / 2)
                     .transition(.opacity)
             }
             if !lyrics.isEmpty && last >= first {
@@ -949,6 +970,7 @@ struct LockLyrics: View {
                     .offset(y: base + ys[index])
                     .animation(.spring(response: 0.7, dampingFraction: 0.86)
                         .delay(index >= current ? Double(index - max(current, 0)) * 0.045 : 0), value: current)
+                    .animation(.spring(response: 0.7, dampingFraction: 0.86), value: intro)
                     .transition(.opacity)
                 }
             }

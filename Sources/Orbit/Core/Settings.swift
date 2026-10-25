@@ -355,7 +355,7 @@ final class Settings: ObservableObject {
     @Pref("lockLyricsSize") var lockLyricsSize = 34.0
     @Pref("lockLyricsAlign") var lockLyricsAlign: TextAlign = .leading
     @Pref("lockLyricsBlur") var lockLyricsBlur = true
-    @Pref("lockTilt") var lockTilt = true
+    @Pref("lockTilt2") var lockTilt = false
     @Pref("lockHintShown") var lockHintShown = false
 
     // Reproduciendo

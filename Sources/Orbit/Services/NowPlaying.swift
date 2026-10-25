@@ -320,6 +320,13 @@ final class NowPlayingService: ObservableObject {
     }
 
     func demoSet(playing: Bool) { setPlaying(playing) }
+
+    /// Solo para las capturas de prueba: salta a un segundo concreto de la canción de ejemplo.
+    func demoSeek(to value: Double) {
+        guard isDemo else { return }
+        elapsedAnchor = value
+        anchorDate = Date()
+    }
 }
 
 // MARK: - Portada de ejemplo

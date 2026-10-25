@@ -491,7 +491,7 @@ struct LockScreenSettings: View {
         Section(tr("Portada", "Artwork")) {
             Toggle(isOn: $settings.lockTilt) {
                 Text(tr("Inclinar con el cursor", "Tilt with the pointer"))
-                Text(tr("La portada se inclina en 3D y un brillo la recorre al mover el ratón", "The artwork tilts in 3D with a moving shine as you move the pointer"))
+                Text(tr("La portada se inclina un poco al pasar el cursor por encima y vuelve a quedar recta sola", "The artwork tilts slightly while the pointer is over it, then straightens itself"))
             }
             Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
         }
