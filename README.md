@@ -11,6 +11,10 @@ Música, avisos, calendario y archivos en el notch de tu Mac, con animaciones fl
   <a href="../../releases/latest"><b>⬇︎ Descargar Orbit para Mac</b></a>
 </p>
 
+<p align="center">
+  <img src="docs/musica.png" width="720" alt="Música en el notch">
+</p>
+
 ---
 
 ## Qué hace
@@ -22,6 +26,20 @@ Música, avisos, calendario y archivos en el notch de tu Mac, con animaciones fl
 - **Bandeja de archivos** — arrastra archivos al notch para guardarlos y sácalos cuando los necesites. También puedes soltarlos en la zona de AirDrop.
 - **Pantalla bloqueada** — un reproductor con portada, controles y letras sin desbloquear tu Mac.
 - **Todos los Mac** — usa el notch real en los MacBook que lo tienen, y una isla virtual (notch o flotante) en Mac sin notch y monitores externos.
+
+<p align="center">
+  <img src="docs/avisos.png" width="560" alt="Avisos en el notch">
+</p>
+
+<p align="center">
+  <img src="docs/calendario.png" width="49%" alt="Calendario">
+  <img src="docs/letras.png" width="49%" alt="Letras sincronizadas">
+</p>
+
+<p align="center">
+  <img src="docs/pantalla-bloqueada.png" width="49%" alt="Reproductor en la pantalla bloqueada">
+  <img src="docs/bandeja.png" width="49%" alt="Bandeja de archivos y AirDrop">
+</p>
 
 ## Animación única
 
@@ -39,6 +57,10 @@ También puedes elegir los estilos **Suave** o **Rápida** y ajustar la velocida
 En **Ajustes de Orbit** (icono de la barra de menús, clic derecho en el notch o el engranaje de la isla abierta) puedes cambiarlo todo, con una vista previa animada en cada sección:
 
 General · Batería · Conectividad · Pantalla · Sonido · Bloqueo · Reproduciendo · Calendario · Bandeja de archivos · Pantalla bloqueada
+
+<p align="center">
+  <img src="docs/ajustes.png" width="620" alt="Ajustes de Orbit">
+</p>
 
 ## Instalar
 
