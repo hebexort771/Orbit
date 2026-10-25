@@ -1,0 +1,66 @@
+name: Compilar Orbit
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Herramientas
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Adaptador de música (mediaremote-adapter)
+        run: |
+          git clone --quiet https://github.com/ungive/mediaremote-adapter.git vendor/mra
+          git -C vendor/mra checkout --quiet 0e82bf1c44ec39554fbfc402ec88a48c6ae2a0fd
+          cmake -S vendor/mra -B vendor/mra/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build vendor/mra/build --config Release -j 4
+          FRAMEWORK="$(find vendor/mra/build -maxdepth 3 -name MediaRemoteAdapter.framework -type d | head -n 1)"
+          echo "Framework: $FRAMEWORK"
+          mkdir -p vendor/adapter
+          ditto "$FRAMEWORK" vendor/adapter/MediaRemoteAdapter.framework
+          cp vendor/mra/bin/mediaremote-adapter.pl vendor/adapter/
+          cp vendor/mra/LICENSE vendor/adapter/LICENSE
+          lipo -info vendor/adapter/MediaRemoteAdapter.framework/MediaRemoteAdapter
+          /usr/bin/perl vendor/adapter/mediaremote-adapter.pl "$PWD/vendor/adapter/MediaRemoteAdapter.framework" get || true
+
+      - name: Compilar Orbit.app
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="1.0.0"; fi
+          chmod +x scripts/build-app.sh
+          VERSION="$VERSION" BUILD="$GITHUB_RUN_NUMBER" ./scripts/build-app.sh
+
+      - name: Capturas de cada estado
+        run: |
+          mkdir -p snapshots
+          perl -e 'alarm 200; exec @ARGV' build/Orbit.app/Contents/MacOS/Orbit --snapshot "$PWD/snapshots" || echo "La captura terminó con código $?"
+          ls -la snapshots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Orbit-dmg
+          path: build/Orbit.dmg
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: snapshots
+          path: snapshots
+
+      - name: Publicar versión
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/Orbit.dmg
+          body_path: .github/release-notes.md
