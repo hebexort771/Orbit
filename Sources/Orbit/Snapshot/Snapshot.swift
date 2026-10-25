@@ -71,12 +71,38 @@ enum Snapshot {
             let size = CGSize(width: 1470, height: 956)
             let lock = ZStack(alignment: .topLeading) {
                 PreviewWallpaper()
-                LockScreenView(state: state, size: size)
+                LockScreenView(state: state, size: size, safeTop: 32)
             }
             .frame(width: size.width, height: size.height)
             .services(services)
             .environment(\.orbitStatic, true)
             write(lock, to: directory.appendingPathComponent("21-lock-\(index + 1)-\(style.rawValue).png"), scale: 1)
+        }
+
+        // Cada MacBook con notch, con su notch y el inicio de sesión de macOS simulados,
+        // para comprobar que nada se tapa ni se sale.
+        let macs: [(String, CGSize, CGFloat, CGFloat)] = [
+            ("air13", CGSize(width: 1470, height: 956), 32, 185),
+            ("air15", CGSize(width: 1710, height: 1112), 32, 185),
+            ("pro14", CGSize(width: 1512, height: 982), 32, 185),
+            ("pro16", CGSize(width: 1728, height: 1117), 32, 185),
+            ("pro14-mas-espacio", CGSize(width: 1800, height: 1169), 38, 220)
+        ]
+        for (name, size, top, notchWidth) in macs {
+            for style in [LockStyle.lyrics, .cover, .karaoke, .card] {
+                let state = LockScreenState()
+                state.style = style
+                state.phase = .shown
+                let lock = ZStack(alignment: .topLeading) {
+                    PreviewWallpaper()
+                    LockScreenView(state: state, size: size, safeTop: top)
+                    LoginMock(size: size, safeTop: top, notchWidth: notchWidth)
+                }
+                .frame(width: size.width, height: size.height)
+                .services(services)
+                .environment(\.orbitStatic, true)
+                write(lock, to: directory.appendingPathComponent("24-fit-\(name)-\(style.rawValue).png"), scale: 1)
+            }
         }
 
         let thumbs = HStack(spacing: 14) {
@@ -182,5 +208,29 @@ struct SnapshotFrame: View {
         }
         .frame(width: 720, height: 270, alignment: .top)
         .clipped()
+    }
+}
+
+/// Notch e inicio de sesión de macOS dibujados encima, solo para las capturas de prueba.
+private struct LoginMock: View {
+    let size: CGSize
+    let safeTop: CGFloat
+    let notchWidth: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            UnevenRoundedRectangle(bottomLeadingRadius: 10, bottomTrailingRadius: 10)
+                .fill(Color.black)
+                .frame(width: notchWidth, height: safeTop)
+                .position(x: size.width / 2, y: safeTop / 2)
+            VStack(spacing: 10) {
+                Circle().fill(Color.white.opacity(0.35)).frame(width: 64, height: 64)
+                Text("Usuario").font(.system(size: 15, weight: .semibold)).foregroundStyle(.white.opacity(0.8))
+                Capsule().fill(Color.white.opacity(0.22)).frame(width: 180, height: 30)
+            }
+            .position(x: size.width / 2, y: size.height - 132)
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .allowsHitTesting(false)
     }
 }

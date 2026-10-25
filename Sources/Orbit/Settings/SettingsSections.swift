@@ -28,6 +28,10 @@ struct GeneralSettings: View {
                 Text(tr("Abrir al pasar el cursor", "Open on hover"))
                 Text(tr("Si lo desactivas, haz clic en el notch para abrirlo", "When off, click the notch to open it"))
             }
+            if settings.hoverToOpen {
+                SliderRow(title: tr("Retraso al pasar el cursor", "Hover delay"), value: $settings.hoverDelay,
+                          range: 0...0.8, step: 0.05, format: { String(format: "%.2f s", $0) })
+            }
             Toggle(isOn: $settings.swipePages) {
                 Text(tr("Deslizar para cambiar de página", "Swipe to change pages"))
                 Text(tr("Desliza con dos dedos en el trackpad sobre la isla abierta", "Two-finger swipe over the open island"))
@@ -35,6 +39,8 @@ struct GeneralSettings: View {
             Toggle(tr("Respuesta háptica del trackpad", "Trackpad haptic feedback"), isOn: $settings.haptics)
             Toggle(tr("Icono en la barra de menús", "Menu bar icon"), isOn: $settings.menuBarIcon)
         }
+
+        MacSection()
 
         Section(tr("Pantallas", "Displays")) {
             Picker(tr("Mostrar en", "Show on"), selection: $settings.display) {
@@ -56,6 +62,66 @@ struct GeneralSettings: View {
                 ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
             }
         }
+    }
+}
+
+/// El Mac detectado y sus medidas, con ajuste fino del notch.
+struct MacSection: View {
+    @ObservedObject private var settings = Settings.shared
+
+    var body: some View {
+        let screen = IslandController.preferredScreen()
+        let metrics = NotchMetrics.measure(screen, style: settings.virtualStyle)
+        let pixels = DeviceInfo.pixels(of: screen)
+        let size = screen.frame.size
+        Section(tr("Tu Mac", "Your Mac")) {
+            LabeledContent(tr("Modelo", "Model")) {
+                Text(DeviceInfo.name).textSelection(.enabled)
+            }
+            LabeledContent(tr("Pantalla", "Display")) {
+                Text(displayText(screen: screen, size: size, pixels: pixels))
+            }
+            LabeledContent(tr("Notch", "Notch")) {
+                Text(metrics.hasNotch
+                     ? "\(Int(metrics.notchWidth)) × \(Int(metrics.notchHeight)) pt"
+                     : tr("Esta pantalla no tiene notch; Orbit dibuja uno virtual", "No notch on this display; Orbit draws a virtual one"))
+            }
+            if metrics.hasNotch {
+                SliderRow(title: tr("Ajuste fino del ancho", "Width fine-tune"),
+                          subtitle: tr("Si la isla sobresale del notch o no lo cubre del todo", "If the island sticks out of the notch or doesn’t fully cover it"),
+                          value: $settings.notchWidthAdjust, range: -20...20, step: 1,
+                          format: { String(format: "%+.0f pt", $0) })
+                    .onChange(of: settings.notchWidthAdjust) { AppDelegate.shared?.island?.calibrate() }
+                SliderRow(title: tr("Ajuste fino del alto", "Height fine-tune"),
+                          value: $settings.notchHeightAdjust, range: -6...8, step: 1,
+                          format: { String(format: "%+.0f pt", $0) })
+                    .onChange(of: settings.notchHeightAdjust) { AppDelegate.shared?.island?.calibrate() }
+                HStack {
+                    Text(tr("Mientras ajustas, el borde de la isla se marca en azul sobre el notch.",
+                            "While you adjust, the island outline is drawn in blue over the notch."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button(tr("Ver contorno", "Show outline")) { AppDelegate.shared?.island?.calibrate() }
+                    Button(tr("Restablecer", "Reset")) {
+                        settings.notchWidthAdjust = 0
+                        settings.notchHeightAdjust = 0
+                        AppDelegate.shared?.island?.calibrate()
+                    }
+                    .disabled(settings.notchWidthAdjust == 0 && settings.notchHeightAdjust == 0)
+                }
+            }
+        }
+    }
+
+    private func displayText(screen: NSScreen, size: CGSize, pixels: CGSize) -> String {
+        var parts: [String] = []
+        if let inches = DeviceInfo.inches(of: screen) {
+            parts.append(String(format: tr("%.1f pulgadas", "%.1f-inch"), inches))
+        }
+        parts.append("\(Int(size.width)) × \(Int(size.height)) pt")
+        parts.append("\(Int(pixels.width)) × \(Int(pixels.height)) px")
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -435,14 +501,19 @@ struct LockScreenSettings: View {
 /// La pantalla bloqueada real, en miniatura.
 struct LockPreviewBox: View {
     @ObservedObject var state: LockScreenState
-    private let base = CGSize(width: 1470, height: 956)
+    /// Las medidas de tu propia pantalla, para que la miniatura sea idéntica a lo que verás.
+    private let screen = IslandController.preferredScreen()
+    private var base: CGSize {
+        let size = screen.frame.size
+        return size.width > 400 && size.height > 300 ? size : CGSize(width: 1470, height: 956)
+    }
 
     var body: some View {
         GeometryReader { geo in
             let scale = geo.size.width / base.width
             ZStack(alignment: .topLeading) {
                 PreviewWallpaper()
-                LockScreenView(state: state, size: base)
+                LockScreenView(state: state, size: base, safeTop: LockScreenController.safeTop(of: screen))
                     .services(Services.demo)
                     .scaleEffect(scale, anchor: .topLeading)
                     .frame(width: base.width * scale, height: base.height * scale, alignment: .topLeading)

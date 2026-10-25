@@ -16,9 +16,12 @@ struct NotchMetrics: Equatable {
         let top = screen.safeAreaInsets.top
         if top > 0, let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
             let width = frame.width - left.width - right.width
+            let settings = Settings.shared
+            let adjustW = CGFloat(max(-20, min(20, settings.notchWidthAdjust)))
+            let adjustH = CGFloat(max(-6, min(8, settings.notchHeightAdjust)))
             return NotchMetrics(screenFrame: frame,
-                                notchWidth: max(150, width.rounded()),
-                                notchHeight: top.rounded(),
+                                notchWidth: max(150, width.rounded() + adjustW),
+                                notchHeight: max(24, top.rounded() + adjustH),
                                 hasNotch: true,
                                 floating: false)
         }

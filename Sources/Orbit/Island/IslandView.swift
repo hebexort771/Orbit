@@ -47,6 +47,12 @@ struct IslandBody: View {
             IslandEdge(island: shape)
                 .stroke(Color.white.opacity(presentation.isExpanded && settings.islandOutline ? 0.09 : 0), lineWidth: 1)
                 .allowsHitTesting(false)
+            IslandEdge(island: shape)
+                .stroke(Color.orbitBlue, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                .shadow(color: Color.orbitBlue.opacity(0.8), radius: 4)
+                .opacity(model.calibrating ? 1 : 0)
+                .animation(.easeInOut(duration: 0.3), value: model.calibrating)
+                .allowsHitTesting(false)
             CometOverlay(island: shape, request: model.comet)
                 .allowsHitTesting(false)
         }

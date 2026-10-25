@@ -298,6 +298,9 @@ final class Settings: ObservableObject {
     @Pref("virtualStyle") var virtualStyle: VirtualStyle = .notch
     @Pref("virtualVisibility") var virtualVisibility: VirtualVisibility = .always
     @Pref("hoverToOpen") var hoverToOpen = true
+    @Pref("hoverDelay") var hoverDelay = 0.12
+    @Pref("notchWidthAdjust") var notchWidthAdjust = 0.0
+    @Pref("notchHeightAdjust") var notchHeightAdjust = 0.0
     @Pref("haptics") var haptics = true
     @Pref("animationStyle") var animationStyle: AnimationStyle = .orbit
     @Pref("animationSpeed") var animationSpeed = 1.0

@@ -196,7 +196,7 @@ final class IslandController {
             Haptics.tap()
             guard settings.hoverToOpen, !model.expanded else { return }
             hoverTask?.cancel()
-            let delay = 0.06
+            let delay = max(0, settings.hoverDelay)
             hoverTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 guard let self, !Task.isCancelled, self.model.hovering else { return }
@@ -431,6 +431,22 @@ final class IslandController {
             try? await Task.sleep(nanoseconds: 3_500_000_000)
             guard let self, !self.model.hovering else { return }
             self.collapse()
+        }
+    }
+
+    private var calibrateTask: Task<Void, Never>?
+
+    /// Marca el contorno de la isla sobre el notch para ajustarlo a mano.
+    func calibrate() {
+        relocate(force: true)
+        model.expanded = false
+        model.clearTransient()
+        model.calibrating = true
+        calibrateTask?.cancel()
+        calibrateTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            self.model.calibrating = false
         }
     }
 

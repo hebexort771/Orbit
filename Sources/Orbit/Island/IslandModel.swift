@@ -190,6 +190,7 @@ final class IslandModel: ObservableObject {
     @Published var visibleWhenIdle = true
     @Published private(set) var comet = CometRequest()
     @Published var pressed = false
+    @Published var calibrating = false
 
     let isPreview: Bool
     private var dismissTask: Task<Void, Never>?

@@ -145,9 +145,9 @@ final class LockScreenController {
         islandModel.visibleWhenIdle = true
 
         if wantsMedia {
-            let panel = screenPanel ?? makeScreenPanel(size: screen.frame.size)
+            let panel = screenPanel ?? makeScreenPanel(for: screen)
             panel.setFrame(screen.frame, display: true)
-            (panel.contentView as? FirstClickHostingView<AnyView>)?.rootView = screenRoot(size: screen.frame.size, preview: false)
+            (panel.contentView as? FirstClickHostingView<AnyView>)?.rootView = screenRoot(for: screen, preview: false)
             panel.orderFrontRegardless()
             space.adopt(panel)
             state.syncStyle()
@@ -195,12 +195,22 @@ final class LockScreenController {
         }
     }
 
-    private func screenRoot(size: CGSize, preview: Bool) -> AnyView {
-        AnyView(LockScreenView(state: state, size: size, preview: preview).services(services))
+    private func screenRoot(for screen: NSScreen, preview: Bool) -> AnyView {
+        AnyView(LockScreenView(state: state, size: screen.frame.size, safeTop: LockScreenController.safeTop(of: screen),
+                               preview: preview).services(services))
+    }
+
+    /// Alto del notch de esa pantalla (o de la barra de menús si no tiene).
+    static func safeTop(of screen: NSScreen) -> CGFloat {
+        let notch = screen.safeAreaInsets.top
+        if notch > 0 { return notch }
+        let bar = screen.frame.maxY - screen.visibleFrame.maxY
+        return bar > 0 ? bar : 24
     }
 
     private func makeIslandPanel() -> LockPanel {
         let panel = LockPanel(frame: IslandController.frame(for: islandModel.metrics), interactive: false)
+        panel.level = NSWindow.Level(rawValue: Int(Int32.max - 1))
         let view = IslandCanvas(model: islandModel).services(services)
         let hosting = FirstClickHostingView(rootView: AnyView(view))
         hosting.sizingOptions = []
@@ -209,9 +219,9 @@ final class LockScreenController {
         return panel
     }
 
-    private func makeScreenPanel(size: CGSize) -> LockPanel {
-        let panel = LockPanel(frame: NSRect(origin: .zero, size: size), interactive: true)
-        let hosting = FirstClickHostingView(rootView: screenRoot(size: size, preview: false))
+    private func makeScreenPanel(for screen: NSScreen) -> LockPanel {
+        let panel = LockPanel(frame: screen.frame, interactive: true)
+        let hosting = FirstClickHostingView(rootView: screenRoot(for: screen, preview: false))
         hosting.sizingOptions = []
         panel.contentView = hosting
         screenPanel = panel
@@ -226,7 +236,7 @@ final class LockScreenController {
         let screen = NSScreen.main ?? IslandController.preferredScreen()
         let panel = LockPanel(frame: screen.frame, interactive: true)
         panel.level = .screenSaver
-        let hosting = FirstClickHostingView(rootView: screenRoot(size: screen.frame.size, preview: true))
+        let hosting = FirstClickHostingView(rootView: screenRoot(for: screen, preview: true))
         hosting.sizingOptions = []
         panel.contentView = hosting
         panel.setFrame(screen.frame, display: true)
@@ -275,41 +285,57 @@ struct LockLayout {
     var lyricsAnchor: CGFloat
     var reflection: Bool
     var clockY: CGFloat
+    var clockDate: CGFloat
+    var clockTime: CGFloat
     var badgeY: CGFloat
     var effective: LockStyle
 
-    init(style: LockStyle, size: CGSize, hasLyrics: Bool, settings: Settings) {
+    /// - safeTop: alto del notch (o de la barra de menús) de esa pantalla.
+    init(style: LockStyle, size: CGSize, safeTop: CGFloat, hasLyrics: Bool, clock: Bool, settings: Settings) {
         let W = size.width, H = size.height
-        let top = H * 0.31
-        let floor = H * 0.80
+        // Reloj: arriba, debajo del notch, del tamaño que corresponde a la pantalla.
+        clockDate = max(15, min(24, H * 0.021))
+        clockTime = max(72, min(150, H * 0.112))
+        let clockTop = safeTop + H * 0.045
+        let clockHeight = clockDate * 1.25 + clockTime * 1.05
+        clockY = clockTop + clockHeight / 2
+        // Zona para el contenido: entre el reloj y la foto de usuario/contraseña de macOS.
+        let top = clock ? clockTop + clockHeight + H * 0.045 : safeTop + H * 0.1
+        let floor = H * 0.755
+        let room = max(240, floor - top)
         var style = style
         if !hasLyrics && (style == .lyrics || style == .karaoke) { style = .cover }
         effective = style
-        clockY = H * 0.155
-        badgeY = H * 0.252
+        badgeY = clock ? clockTop + clockHeight + H * 0.02 : top - 20
         reflection = false
         lyrics = nil
-        lyricsSize = settings.lockLyricsSize
+        lyricsSize = min(settings.lockLyricsSize, max(22, W * 0.026))
         lyricsAlign = settings.lockLyricsAlign
         lyricsAnchor = 0.36
 
         switch style {
         case .lyrics:
-            let side = min(W * 0.22, H * 0.34)
+            let cardH: CGFloat = 132
+            let side = max(150, min(W * 0.22, room - cardH - 18))
+            let groupH = side + 18 + cardH
+            let y0 = top + max(0, (room - groupH) / 2)
             let cx = W * 0.285
-            art = CGRect(x: cx - side / 2, y: top, width: side, height: side)
+            art = CGRect(x: cx - side / 2, y: y0, width: side, height: side)
             artRadius = side * 0.07
-            card = CGRect(x: art.minX - 4, y: art.maxY + 18, width: side + 8, height: 132)
+            card = CGRect(x: art.minX - 4, y: art.maxY + 18, width: side + 8, height: cardH)
             cardKind = .under
             cardRadius = 24
             let x = W * 0.47
-            lyrics = CGRect(x: x, y: top - H * 0.03, width: min(W * 0.42, 720), height: floor - top + H * 0.03)
+            lyrics = CGRect(x: x, y: top - H * 0.02, width: min(W * 0.42, 720), height: floor - top + H * 0.01)
         case .cover:
-            let side = min(W * 0.23, H * 0.29)
-            art = CGRect(x: W / 2 - side / 2, y: top - H * 0.04, width: side, height: side)
+            let cardH: CGFloat = 156
+            let side = max(150, min(W * 0.23, (room - cardH) / 1.3))
+            let groupH = side * 1.3 + cardH
+            let y0 = top + max(0, (room - groupH) / 2)
+            art = CGRect(x: W / 2 - side / 2, y: y0, width: side, height: side)
             artRadius = side * 0.06
             let cw = max(side + 90, 400)
-            card = CGRect(x: W / 2 - cw / 2, y: art.maxY + side * 0.3, width: cw, height: 156)
+            card = CGRect(x: W / 2 - cw / 2, y: art.maxY + side * 0.3, width: cw, height: cardH)
             cardKind = .cover
             cardRadius = 28
             reflection = true
@@ -320,20 +346,20 @@ struct LockLayout {
             artRadius = 12
             cardKind = .mini
             cardRadius = 30
-            lyrics = CGRect(x: W * 0.12, y: top - H * 0.05, width: W * 0.76, height: card.minY - 24 - (top - H * 0.05))
-            lyricsSize = settings.lockLyricsSize * 1.45
+            lyrics = CGRect(x: W * 0.12, y: top - H * 0.02, width: W * 0.76, height: max(120, card.minY - 24 - (top - H * 0.02)))
+            lyricsSize = min(settings.lockLyricsSize * 1.45, max(30, W * 0.038))
             lyricsAlign = .center
             lyricsAnchor = 0.4
         case .card:
             let cw: CGFloat = 420
-            let ch: CGFloat = hasLyrics ? 318 : 222
-            card = CGRect(x: W / 2 - cw / 2, y: H * 0.38, width: cw, height: ch)
+            let ch: CGFloat = min(hasLyrics ? 318 : 222, room)
+            card = CGRect(x: W / 2 - cw / 2, y: top + max(0, (room - ch) / 2), width: cw, height: ch)
             art = CGRect(x: card.minX + 22, y: card.minY + 22, width: 68, height: 68)
             artRadius = 15
             cardKind = .full
             cardRadius = 32
             if hasLyrics {
-                lyrics = CGRect(x: card.minX + 22, y: card.minY + 222, width: cw - 44, height: 82)
+                lyrics = CGRect(x: card.minX + 22, y: card.minY + 222, width: cw - 44, height: max(40, ch - 236))
                 lyricsSize = 17
                 lyricsAlign = .center
                 lyricsAnchor = 0.5
@@ -347,6 +373,7 @@ struct LockLayout {
 struct LockScreenView: View {
     @ObservedObject var state: LockScreenState
     let size: CGSize
+    var safeTop: CGFloat = 32
     var preview = false
     @EnvironmentObject private var media: NowPlayingService
     @ObservedObject private var settings = Settings.shared
@@ -359,7 +386,8 @@ struct LockScreenView: View {
         let shown = state.phase == .shown || isStatic
         let leaving = state.phase == .leaving
         let hasLyrics = settings.lockScreenLyrics && settings.lyricsEnabled && !media.lyrics.isEmpty
-        let layout = LockLayout(style: state.style, size: size, hasLyrics: hasLyrics, settings: settings)
+        let layout = LockLayout(style: state.style, size: size, safeTop: safeTop, hasLyrics: hasLyrics,
+                                clock: settings.lockClock, settings: settings)
 
         ZStack(alignment: .topLeading) {
             LockBackdrop(size: size)
@@ -367,7 +395,7 @@ struct LockScreenView: View {
                 .animation(.easeInOut(duration: leaving ? 0.75 : 1.0), value: state.phase)
 
             if settings.lockClock {
-                LockClock(height: size.height)
+                LockClock(dateSize: layout.clockDate, timeSize: layout.clockTime)
                     .frame(width: size.width)
                     .position(x: size.width / 2, y: layout.clockY)
                     .modifier(Reveal(phase: state.phase, delay: 0.05, travel: -24, isStatic: isStatic))
@@ -429,7 +457,8 @@ struct LockScreenView: View {
 
     /// Hacia donde vuela la portada al desbloquear: el notch.
     private var notchRect: CGRect {
-        CGRect(x: size.width / 2 - 11, y: 6, width: 22, height: 22)
+        let side = max(18, safeTop - 10)
+        return CGRect(x: size.width / 2 - side / 2, y: (safeTop - side) / 2, width: side, height: side)
     }
 
     @ViewBuilder
@@ -527,20 +556,24 @@ struct LockBackdrop: View {
             ZStack {
                 c[0]
                 if let soft = media.softArtwork {
+                    // Cada capa es más grande que la diagonal de la pantalla y se desvanece en los bordes:
+                    // al girar nunca se ve una esquina ni una línea recta.
                     Image(nsImage: soft)
                         .resizable()
                         .interpolation(.high)
-                        .frame(width: diagonal * 1.2, height: diagonal * 1.2)
+                        .frame(width: diagonal * 1.3, height: diagonal * 1.3)
+                        .mask(softEdge(diagonal * 1.3))
                         .rotationEffect(.degrees(t.truncatingRemainder(dividingBy: 3600) * 3.5))
                         .opacity(0.72)
                     Image(nsImage: soft)
                         .resizable()
                         .interpolation(.high)
-                        .frame(width: diagonal * 0.85, height: diagonal * 0.85)
+                        .frame(width: diagonal * 1.3, height: diagonal * 1.3)
+                        .mask(softEdge(diagonal * 1.3))
                         .scaleEffect(x: -1, y: 1)
                         .rotationEffect(.degrees(90 - t.truncatingRemainder(dividingBy: 3600) * 5))
                         .blendMode(.screen)
-                        .opacity(0.38)
+                        .opacity(0.34)
                 }
                 ForEach(0..<3, id: \.self) { index in
                     blob(c[index], index: index, t: t)
@@ -549,6 +582,12 @@ struct LockBackdrop: View {
             }
             .frame(width: size.width, height: size.height)
         }
+    }
+
+    private func softEdge(_ side: CGFloat) -> some View {
+        RadialGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.62),
+                               .init(color: .clear, location: 1)],
+                       center: .center, startRadius: 0, endRadius: side / 2)
     }
 
     private func blob(_ color: Color, index: Int, t: Double) -> some View {
@@ -594,16 +633,17 @@ struct LockBackdrop: View {
 // MARK: - Reloj
 
 struct LockClock: View {
-    let height: CGFloat
+    let dateSize: CGFloat
+    let timeSize: CGFloat
     @ObservedObject private var settings = Settings.shared
 
     var body: some View {
         TimelineView(.everyMinute) { timeline in
-            VStack(spacing: height * 0.004) {
+            VStack(spacing: dateSize * 0.2) {
                 Text(dateText(timeline.date))
-                    .font(.system(size: max(15, height * 0.022), weight: .semibold))
+                    .font(.system(size: dateSize, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.82))
-                Text(timeText(timeline.date))
+                Text(LockClock.time(timeline.date))
                     .font(timeFont)
                     .monospacedDigit()
                     .foregroundStyle(LinearGradient(colors: [.white.opacity(0.96), .white.opacity(0.72)],
@@ -615,11 +655,10 @@ struct LockClock: View {
     }
 
     private var timeFont: Font {
-        let size = max(64, height * 0.115)
         switch settings.lockClockStyle {
-        case .rounded: return .system(size: size, weight: .bold, design: .rounded)
-        case .classic: return .system(size: size, weight: .semibold, design: .default)
-        case .light: return .system(size: size, weight: .thin, design: .default)
+        case .rounded: return .system(size: timeSize, weight: .bold, design: .rounded)
+        case .classic: return .system(size: timeSize, weight: .semibold, design: .default)
+        case .light: return .system(size: timeSize, weight: .thin, design: .default)
         }
     }
 
@@ -631,16 +670,16 @@ struct LockClock: View {
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 
-    private func timeText(_ date: Date) -> String {
+    /// Como el reloj de macOS: solo horas y minutos, sin "a. m." ni "p. m.",
+    /// respetando si usas formato de 12 o de 24 horas.
+    static func time(_ date: Date) -> String {
+        let locale = Lang.locale
+        let pattern = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale) ?? "H"
+        let twelve = pattern.contains("h") || pattern.contains("K") || pattern.contains("a")
         let formatter = DateFormatter()
-        formatter.locale = Lang.locale
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
+        formatter.locale = locale
+        formatter.dateFormat = twelve ? "h:mm" : "H:mm"
         return formatter.string(from: date)
-            .replacingOccurrences(of: " a. m.", with: "")
-            .replacingOccurrences(of: " p. m.", with: "")
-            .replacingOccurrences(of: " AM", with: "")
-            .replacingOccurrences(of: " PM", with: "")
     }
 }
 
