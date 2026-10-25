@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbit · Tu notch, vivo</title>
+  <meta name="description" content="Orbit convierte el notch de tu Mac en una isla dinámica: música, avisos, calendario y archivos con animaciones fluidas. Gratis y de código abierto.">
+  <meta name="theme-color" content="#120E2E">
+  <meta property="og:title" content="Orbit · Tu notch, vivo">
+  <meta property="og:description" content="Música, avisos, calendario y archivos en el notch de tu Mac, con animaciones que se sienten de Apple.">
+  <meta property="og:image" content="https://hebexort771.github.io/Orbit/musica.png">
+  <link rel="icon" href="site/favicon.png">
+  <link rel="apple-touch-icon" href="site/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site/orbit.css">
+</head>
+<body>
+  <div class="wall" aria-hidden="true"><div class="wall-tint"></div><div class="wall-grain"></div></div>
+
+  <header class="menubar">
+    <nav class="menu-left" aria-label="Secciones">
+      <a class="brand" href="#inicio"><span class="planet" data-planet></span><b>Orbit</b></a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#prueba">Pruébalo</a>
+      <a href="#instalar">Instalar</a>
+    </nav>
+    <div class="menu-right">
+      <span class="clock" data-clock></span>
+      <a class="menu-download" href="https://github.com/hebexort771/Orbit/releases/latest/download/Orbit.dmg">Descargar</a>
+    </div>
+  </header>
+
+  <!-- La isla: vive arriba al centro, donde está el notch -->
+  <div class="island" id="island" aria-hidden="true"></div>
+  <div class="fake-cursor" id="cursor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 2.5v17.2l4.6-4.3 2.9 6.6 3.1-1.4-2.9-6.5H19z" fill="#fff" stroke="#000" stroke-width="1.4" stroke-linejoin="round"/></svg>
+  </div>
+
+  <main>
+    <section class="hero" id="inicio" data-scene="hero">
+      <h1>Tu notch,<br>vivo.</h1>
+      <div class="hero-side">
+        <p class="lede">Orbit convierte el notch de tu Mac en una isla que muestra tu música, tus avisos, tu calendario y tus archivos, con animaciones que se sienten hechas por Apple.</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/hebexort771/Orbit/releases/latest/download/Orbit.dmg">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Descargar para Mac
+          </a>
+          <a class="btn ghost" href="https://github.com/hebexort771/Orbit">Ver el código</a>
+        </div>
+        <p class="fine">Gratis y de código abierto. Para macOS 14 o posterior, en Mac con Apple Silicon o Intel.</p>
+      </div>
+      <p class="hint" data-hint>Pasa el cursor por la isla de arriba</p>
+    </section>
+
+    <div id="como" class="story">
+      <section class="scene" data-scene="idle">
+        <div class="copy">
+          <h2>Cuando no pasa nada, no está.</h2>
+          <p>En reposo, Orbit se esconde dentro del notch. No tapa nada de tu pantalla y apenas usa batería.</p>
+          <p class="aside">¿Ves la isla arriba? Ahora mismo tiene exactamente el tamaño del notch de un MacBook Air.</p>
+        </div>
+      </section>
+
+      <section class="scene" data-scene="music" data-tint="#FF5C93">
+        <div class="copy">
+          <h2>Tu música, a la vista.</h2>
+          <p>La portada a un lado del notch y la onda al otro. Pasa el cursor y se abre con el título, el progreso y los controles.</p>
+          <p>Cuando cambias de canción, la portada gira y la isla se tiñe con sus colores.</p>
+          <p class="aside">Funciona con Música, Spotify, Podcasts, YouTube en el navegador y casi cualquier reproductor.</p>
+        </div>
+      </section>
+
+      <section class="scene" data-scene="lyrics" data-tint="#C04CFF">
+        <div class="copy">
+          <h2>La letra, al ritmo.</h2>
+          <p>Toca el globo de texto y la letra avanza línea por línea mientras suena la canción. Orbit la busca sola, sin cuentas ni configuraciones.</p>
+        </div>
+      </section>
+
+      <section class="scene" data-scene="alerts" data-tint="#3FDC6E">
+        <div class="copy">
+          <h2>Avisos que llegan con estilo.</h2>
+          <p>Conectas el cargador, entran tus AirPods, subes el volumen: la isla se estira como un líquido, una estela de luz recorre su borde y en un par de segundos vuelve a su lugar.</p>
+          <ul class="ticker" data-ticker>
+            <li data-k="charging">Cargador conectado</li>
+            <li data-k="airpods">AirPods con su batería</li>
+            <li data-k="volume">Volumen</li>
+            <li data-k="brightness">Brillo</li>
+            <li data-k="low">Batería baja</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="scene" data-scene="calendar" data-tint="#FF8A3D">
+        <div class="copy">
+          <h2>Tu día de un vistazo.</h2>
+          <p>Tus eventos de hoy y el mes completo, sin abrir Calendario. Unos minutos antes de cada reunión, Orbit te avisa.</p>
+        </div>
+      </section>
+
+      <section class="scene has-stage" data-scene="tray" data-tint="#5B8CFF">
+        <div class="copy">
+          <h2>Arrastra, suelta, listo.</h2>
+          <p>Lleva cualquier archivo hacia el notch y queda guardado en la bandeja, listo para cuando lo necesites. Suéltalo en la zona de AirDrop para enviarlo a tu iPhone.</p>
+        </div>
+        <div class="stage finder" aria-hidden="true">
+          <div class="finder-bar"><i></i><i></i><i></i><span>Descargas</span></div>
+          <div class="finder-files">
+            <div class="file" data-file><div class="doc pdf"><b>PDF</b></div><span>Contrato.pdf</span></div>
+            <div class="file"><div class="doc img"><b>JPG</b></div><span>Atardecer.jpg</span></div>
+            <div class="file"><div class="doc key"><b>KEY</b></div><span>Presentación.key</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene has-stage lockscene" data-scene="lock" data-tint="#7A5CFF">
+        <div class="lock-top" aria-hidden="true">
+          <div class="lock-date" data-date></div>
+          <div class="lock-time" data-time></div>
+        </div>
+        <div class="copy">
+          <h2>Incluso con la pantalla bloqueada.</h2>
+          <p>Controla la música y lee la letra sin desbloquear tu Mac. Al entrar, el candado se abre en el notch.</p>
+        </div>
+        <div class="stage lockcard" data-lockcard aria-hidden="true"></div>
+      </section>
+
+      <section class="scene" data-scene="nonotch" data-tint="#5B8CFF">
+        <div class="copy">
+          <h2>¿Tu Mac no tiene notch?</h2>
+          <p>En monitores externos y en Mac sin notch, Orbit dibuja uno virtual. Si prefieres, una isla flotante como la del iPhone.</p>
+          <div class="segmented" role="group" aria-label="Estilo sin notch">
+            <button type="button" data-virtual="notch" aria-pressed="true">Notch virtual</button>
+            <button type="button" data-virtual="floating" aria-pressed="false">Isla flotante</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="play" id="prueba" data-scene="play">
+      <div class="copy">
+        <h2>Juega con la isla.</h2>
+        <p>Toca un aviso y mira la animación Órbita: el ancho llega antes que el alto, como un líquido, y una estela de luz baja por los dos lados hasta encontrarse.</p>
+      </div>
+      <div class="console">
+        <div class="pads" role="group" aria-label="Avisos">
+          <button type="button" data-try="charging"><span class="dot" style="--c:#3FDC6E"></span>Cargando</button>
+          <button type="button" data-try="airpods"><span class="dot" style="--c:#5B8CFF"></span>AirPods</button>
+          <button type="button" data-try="low"><span class="dot" style="--c:#FF4D4D"></span>Batería baja</button>
+          <button type="button" data-try="lock"><span class="dot" style="--c:#ffffff"></span>Bloqueo</button>
+          <button type="button" data-try="calendarAlert"><span class="dot" style="--c:#FF8A3D"></span>Reunión en 5 min</button>
+          <button type="button" data-try="music"><span class="dot" style="--c:#FF5C93"></span>Música</button>
+          <button type="button" data-try="expand"><span class="dot" style="--c:#C04CFF"></span>Abrir la isla</button>
+          <button type="button" data-try="tray"><span class="dot" style="--c:#7A5CFF"></span>Bandeja</button>
+        </div>
+        <label class="slider">
+          <span>Volumen</span>
+          <input type="range" min="0" max="100" value="56" data-volume>
+          <output data-volume-out>56</output>
+        </label>
+        <div class="tuning">
+          <div class="segmented" role="group" aria-label="Estilo de animación">
+            <button type="button" data-style="orbit" aria-pressed="true">Órbita</button>
+            <button type="button" data-style="smooth" aria-pressed="false">Suave</button>
+            <button type="button" data-style="snappy" aria-pressed="false">Rápida</button>
+          </div>
+          <label class="slider">
+            <span>Velocidad</span>
+            <input type="range" min="60" max="160" value="100" data-speed>
+            <output data-speed-out>100%</output>
+          </label>
+          <label class="check"><input type="checkbox" data-comet checked> Estela de luz</label>
+          <label class="check"><input type="checkbox" data-glow checked> Brillo ambiental</label>
+        </div>
+        <figure class="curve">
+          <canvas width="560" height="200" data-curve aria-label="Curva de los resortes de ancho y alto"></canvas>
+          <figcaption><span class="key w"></span>ancho <span class="key h"></span>alto: el ancho se adelanta, por eso la isla se siente líquida.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="tune" data-scene="tune" data-tint="#FF5C93">
+      <div class="copy">
+        <h2>A tu gusto.</h2>
+        <p>Elige el estilo de la animación, la velocidad, la onda de audio, cuánto dura cada aviso y qué quieres ver. Cada sección de Ajustes tiene una vista previa animada y un botón para probarla en tu notch.</p>
+      </div>
+      <img class="shot" src="ajustes.png" width="820" height="620" loading="lazy" alt="Ajustes de Orbit con la sección Reproduciendo abierta">
+    </section>
+
+    <section class="install" id="instalar" data-scene="install">
+      <div class="copy">
+        <h2>Instálalo en un minuto.</h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <h3>Descarga Orbit.dmg</h3>
+          <p><a href="https://github.com/hebexort771/Orbit/releases/latest/download/Orbit.dmg">Descargar Orbit</a> (pesa menos de 3 MB).</p>
+        </li>
+        <li>
+          <h3>Arrástralo a Aplicaciones</h3>
+          <div class="dmg" aria-hidden="true">
+            <img class="dmg-app" src="site/icon.png" width="64" height="64" alt="">
+            <svg class="dmg-arrow" viewBox="0 0 60 20" width="60" height="20"><path d="M2 10h50m-8-7 8 7-8 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="dmg-folder"><span>A</span></div>
+          </div>
+        </li>
+        <li>
+          <h3>Ábrelo la primera vez</h3>
+          <p>macOS te pedirá confirmar porque Orbit no pasa por la App Store. Ve a Ajustes del Sistema, luego Privacidad y seguridad, y pulsa <b>Abrir igualmente</b>.</p>
+          <p class="aside">O en Terminal: <code>xattr -dr com.apple.quarantine /Applications/Orbit.app</code></p>
+        </li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <p>Orbit es software libre con licencia MIT. Usa <a href="https://github.com/ungive/mediaremote-adapter">mediaremote-adapter</a> para saber qué suena y <a href="https://lrclib.net">LRCLIB</a> para las letras.</p>
+    <p><a href="https://github.com/hebexort771/Orbit">Código fuente</a> <a href="https://github.com/hebexort771/Orbit/releases">Todas las versiones</a></p>
+  </footer>
+
+  <script src="site/orbit.js"></script>
+</body>
+</html>
