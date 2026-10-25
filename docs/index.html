@@ -116,16 +116,25 @@
         </div>
       </section>
 
-      <section class="scene has-stage lockscene" data-scene="lock" data-tint="#7A5CFF">
-        <div class="lock-top" aria-hidden="true">
-          <div class="lock-date" data-date></div>
-          <div class="lock-time" data-time></div>
-        </div>
+      <section class="lockscene" data-scene="lock" data-tint="#7A5CFF">
         <div class="copy">
-          <h2>Incluso con la pantalla bloqueada.</h2>
-          <p>Controla la música y lee la letra sin desbloquear tu Mac. Al entrar, el candado se abre en el notch.</p>
+          <h2>Tu pantalla bloqueada, como Apple Music.</h2>
+          <p>La portada, los controles y la letra a pantalla completa, con los colores de la canción moviéndose de fondo. Toca la portada para cambiar de estilo y, al desbloquear, la portada vuela hasta el notch.</p>
         </div>
-        <div class="stage lockcard" data-lockcard aria-hidden="true"></div>
+        <div class="lk" data-lk data-style="lyrics">
+          <div class="lk-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="lk-clock" aria-hidden="true"><div class="lk-date" data-date></div><div class="lk-time" data-time></div></div>
+          <div class="lk-lyrics" aria-hidden="true"><div class="lk-col" data-lklyrics></div></div>
+          <div class="lk-card" data-lkcard></div>
+          <button class="lk-art" type="button" data-lkart aria-label="Cambiar el estilo de la pantalla bloqueada"><img alt=""></button>
+          <div class="lk-badge" data-lkbadge aria-live="polite"></div>
+        </div>
+        <div class="segmented lk-styles" role="group" aria-label="Estilo de la pantalla bloqueada">
+          <button type="button" data-lkstyle="lyrics" aria-pressed="true">Letras</button>
+          <button type="button" data-lkstyle="cover" aria-pressed="false">Portada</button>
+          <button type="button" data-lkstyle="karaoke" aria-pressed="false">Karaoke</button>
+          <button type="button" data-lkstyle="card" aria-pressed="false">Tarjeta</button>
+        </div>
       </section>
 
       <section class="scene" data-scene="nonotch" data-tint="#5B8CFF">

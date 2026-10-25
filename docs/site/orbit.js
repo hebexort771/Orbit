@@ -112,10 +112,12 @@
 
   const TRACKS = [
     { title: 'Luz de Neón', artist: 'Aurora Vale', art: coverSunset(), accent: '#FF5C93', duration: 214,
+      palette: ['#8A2270', '#C0406B', '#2A1660'],
       lyrics: [[58, 'Brillas aunque apague la ciudad'], [64, 'Giro a tu alrededor sin pensar'], [70, 'Somos luz de neón en la oscuridad'],
         [77, 'Y no quiero volver a aterrizar'], [84, 'Una órbita más, una vez más'], [91, 'Tu voz es la señal que sigo al regresar'],
         [98, 'Y en la noche te vuelvo a encontrar'], [105, '♪']] },
     { title: 'Marea Alta', artist: 'Los Satélites', art: coverOcean(), accent: '#45CFFF', duration: 187,
+      palette: ['#0F4A8A', '#1E86B8', '#0A1F44'],
       lyrics: [[8, 'Sube la marea, sube la canción'], [14, 'Cada ola trae tu dirección'], [20, 'Bajo la luna nadie tiene prisa'],
         [26, 'Te sigo el paso con la brisa'], [32, '♪']] }
   ];
@@ -876,33 +878,128 @@
   tickClock();
   setInterval(tickClock, 10000);
 
-  // Tarjeta de la pantalla bloqueada
-  const lockcard = $('[data-lockcard]');
-  if (lockcard) {
-    const t = music.track;
-    lockcard.innerHTML = `<div class="lc"><div class="lc-bg" style="background-image:url('${t.art}')" data-lcbg></div><div class="lc-in">
-      <div class="lc-top"><div class="art" data-art><img src="${t.art}" alt=""></div>
-        <div style="flex:1;min-width:0"><div class="lc-title" data-title>${t.title}</div><div class="lc-artist" data-artist>${t.artist}</div></div>
-        ${wave(5, 28, 24, 3)}</div>
+  // ---------------------------------------------------------------- Pantalla bloqueada
+
+  const lk = $('[data-lk]');
+  const LK_STYLES = ['lyrics', 'cover', 'karaoke', 'card'];
+  const LK_NAMES = { lyrics: 'Letras', cover: 'Portada', karaoke: 'Karaoke', card: 'Tarjeta' };
+  if (lk) {
+    const card = $('[data-lkcard]', lk);
+    const col = $('[data-lklyrics]', lk);
+    const artBtn = $('[data-lkart]', lk);
+    const badge = $('[data-lkbadge]', lk);
+    card.innerHTML = `
+      <div class="lk-meta"><b data-title>${music.track.title}</b><span data-artist>${music.track.artist}</span></div>
       <div class="prog" data-prog><span class="t1"></span><div class="bar"><b></b></div><span class="t2"></span></div>
-      <div class="ctrls">
-        <button class="ibtn dim" aria-label="Aleatorio">${svg(ICON.shuffle, 15)}</button>
-        <button class="ibtn mid" data-act="prev" aria-label="Anterior">${svg(ICON.backward, 21)}</button>
-        <button class="ibtn big" data-act="play" data-size="28" aria-label="Reproducir o pausar" style="width:50px;height:50px">${svg(ICON.pause, 28)}</button>
-        <button class="ibtn mid" data-act="next" aria-label="Siguiente">${svg(ICON.forward, 21)}</button>
-        <button class="ibtn dim" aria-label="Repetir">${svg(ICON.repeat, 15)}</button>
-      </div>
-      <div class="lyr"><div class="lyr-col" data-lyrics>${lyricLines(t)}</div></div>
-    </div></div>`;
-    island.live.waves.push(...$$('.wave', lockcard));
-    lockcard.addEventListener('click', (e) => {
+      <div class="lk-ctrls">
+        <button class="dim" type="button" aria-label="Aleatorio">${svg(ICON.shuffle, 14)}</button>
+        <button type="button" data-act="prev" aria-label="Anterior">${svg(ICON.backward, 20)}</button>
+        <button class="big" type="button" data-act="play" data-size="26" aria-label="Reproducir o pausar">${svg(ICON.pause, 26)}</button>
+        <button type="button" data-act="next" aria-label="Siguiente">${svg(ICON.forward, 20)}</button>
+        <button class="dim" type="button" aria-label="Repetir">${svg(ICON.repeat, 14)}</button>
+      </div>`;
+
+    const paintTrack = () => {
+      const t = music.track;
+      lk.style.setProperty('--lk-art', `url("${t.art}")`);
+      lk.style.setProperty('--c1', t.palette[0]);
+      lk.style.setProperty('--c2', t.palette[1]);
+      lk.style.setProperty('--c3', t.palette[2]);
+      col.innerHTML = t.lyrics.map(([, text]) => `<p>${text || '•••'}</p>`).join('');
+      col.dataset.key = '';
+      const img = artBtn.querySelector('img');
+      if (img.src !== t.art) {
+        if (img.getAttribute('src') && !reduced) {
+          img.animate([{ transform: 'rotateY(0)', opacity: 1 }, { transform: 'rotateY(90deg)', opacity: 0 }], { duration: 180, easing: 'ease-in' })
+            .finished.then(() => {
+              img.src = t.art;
+              img.animate([{ transform: 'rotateY(-90deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 480, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
+            });
+        } else img.src = t.art;
+      }
+    };
+    paintTrack();
+    island.on(paintTrack);
+
+    let badgeTimer = 0;
+    const setStyle = (style, announce = true) => {
+      if (lk.dataset.style === style) return;
+      lk.classList.add('switching');
+      lk.dataset.style = style;
+      col.dataset.key = '';
+      setTimeout(() => lk.classList.remove('switching'), 280);
+      $$('[data-lkstyle]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lkstyle === style)));
+      if (announce) {
+        badge.textContent = LK_NAMES[style];
+        badge.classList.add('on');
+        clearTimeout(badgeTimer);
+        badgeTimer = setTimeout(() => badge.classList.remove('on'), 1500);
+      }
+    };
+    artBtn.addEventListener('click', () => {
+      const i = LK_STYLES.indexOf(lk.dataset.style);
+      setStyle(LK_STYLES[(i + 1) % LK_STYLES.length]);
+    });
+    $$('[data-lkstyle]').forEach((b) => b.addEventListener('click', () => setStyle(b.dataset.lkstyle)));
+
+    card.addEventListener('click', (e) => {
       const act = e.target.closest('button')?.dataset.act;
       if (act === 'play') island.togglePlay();
       if (act === 'next') island.nextTrack(1);
       if (act === 'prev') island.nextTrack(-1);
+      lk.classList.toggle('paused', !music.playing);
     });
-    island.on(() => { const bg = $('[data-lcbg]'); if (bg) bg.style.backgroundImage = `url('${music.track.art}')`; });
+
+    // La portada se inclina siguiendo el cursor
+    lk.addEventListener('pointermove', (e) => {
+      if (reduced) return;
+      const r = lk.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      artBtn.style.setProperty('--ry', (x * 18).toFixed(2) + 'deg');
+      artBtn.style.setProperty('--rx', (-y * 14).toFixed(2) + 'deg');
+      artBtn.style.setProperty('--shine', (x * 60).toFixed(1) + '%');
+    });
+    lk.addEventListener('pointerleave', () => {
+      artBtn.style.setProperty('--ry', '0deg');
+      artBtn.style.setProperty('--rx', '0deg');
+      artBtn.style.setProperty('--shine', '0%');
+    });
+
+    // Letra: cascada, desenfoque por distancia y relleno progresivo
+    const tickLyrics = () => {
+      requestAnimationFrame(tickLyrics);
+      if (current !== 'lock') return;
+      const lines = music.track.lyrics;
+      const li = Math.max(0, music.lyricIndex());
+      const ps = col.children;
+      if (!ps.length) return;
+      const key = li + ':' + music.index + ':' + lk.dataset.style;
+      if (col.dataset.key !== key) {
+        col.dataset.key = key;
+        const box = col.parentElement.offsetHeight;
+        const anchor = lk.dataset.style === 'card' ? 0.5 : (lk.dataset.style === 'karaoke' ? 0.4 : 0.36);
+        const target = ps[li];
+        const shift = box * anchor - target.offsetTop - target.offsetHeight / 2;
+        [...ps].forEach((p, i) => {
+          const d = Math.abs(i - li);
+          p.classList.toggle('on', i === li);
+          p.style.setProperty('--shift', shift.toFixed(1) + 'px');
+          p.style.setProperty('--delay', (i >= li ? (i - li) * 0.045 : 0).toFixed(3) + 's');
+          p.style.setProperty('--o', i === li ? 1 : Math.max(0.14, 0.42 - 0.07 * d).toFixed(2));
+          p.style.setProperty('--b', (i === li ? 0 : Math.min(5, d * 1.2)).toFixed(1) + 'px');
+          const lineH = parseFloat(getComputedStyle(p).lineHeight) || 30;
+          p.classList.toggle('fill', i === li && p.offsetHeight < lineH * 1.5 && lines[i][1] !== '' && lines[i][1] !== '♪');
+        });
+      }
+      const line = lines[li];
+      const next = lines[li + 1] ? lines[li + 1][0] : line[0] + 6;
+      const progress = clamp((music.elapsed - line[0]) / Math.max(0.5, next - line[0]), 0, 1);
+      ps[li].style.setProperty('--p', progress.toFixed(3));
+    };
+    requestAnimationFrame(tickLyrics);
   }
+
   const refreshLive = () => {
     island.live.prog = $$('[data-prog]');
     island.live.lyr = $$('[data-lyrics]');

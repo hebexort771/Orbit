@@ -286,7 +286,7 @@ struct LockLayout {
         if !hasLyrics && (style == .lyrics || style == .karaoke) { style = .cover }
         effective = style
         clockY = H * 0.155
-        badgeY = H * 0.275
+        badgeY = H * 0.252
         reflection = false
         lyrics = nil
         lyricsSize = settings.lockLyricsSize
@@ -305,11 +305,11 @@ struct LockLayout {
             let x = W * 0.47
             lyrics = CGRect(x: x, y: top - H * 0.03, width: min(W * 0.42, 720), height: floor - top + H * 0.03)
         case .cover:
-            let side = min(W * 0.25, H * 0.34)
-            art = CGRect(x: W / 2 - side / 2, y: top - H * 0.015, width: side, height: side)
+            let side = min(W * 0.23, H * 0.29)
+            art = CGRect(x: W / 2 - side / 2, y: top - H * 0.04, width: side, height: side)
             artRadius = side * 0.06
-            let cw = max(side + 70, 400)
-            card = CGRect(x: W / 2 - cw / 2, y: art.maxY + 26, width: cw, height: 156)
+            let cw = max(side + 90, 400)
+            card = CGRect(x: W / 2 - cw / 2, y: art.maxY + side * 0.3, width: cw, height: 156)
             cardKind = .cover
             cardRadius = 28
             reflection = true
@@ -407,7 +407,7 @@ struct LockScreenView: View {
                 Text(tr("Pulsa Esc para salir de la vista previa", "Press Esc to exit the preview"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))
-                    .position(x: size.width / 2, y: size.height - 40)
+                    .position(x: size.width / 2, y: 22)
                     .transition(.opacity)
             }
         }
@@ -440,9 +440,11 @@ struct LockScreenView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
-                .background(Capsule().fill(Color.white.opacity(0.14)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.18)))
-                .position(x: size.width / 2, y: layout.badgeY)
+                .background(Capsule().fill(Color.black.opacity(0.45)))
+                .background(Capsule().fill(Color.white.opacity(0.1)))
+                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2)))
+                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+                .position(x: layout.art.midX, y: layout.art.midY)
                 .transition(.modifier(active: BlurFade(progress: 0, lift: 10), identity: BlurFade(progress: 1, lift: 10)))
                 .id(style)
         } else if state.hint && state.phase == .shown {
@@ -530,7 +532,7 @@ struct LockBackdrop: View {
                         .interpolation(.high)
                         .frame(width: diagonal * 1.2, height: diagonal * 1.2)
                         .rotationEffect(.degrees(t.truncatingRemainder(dividingBy: 3600) * 3.5))
-                        .opacity(0.85)
+                        .opacity(0.72)
                     Image(nsImage: soft)
                         .resizable()
                         .interpolation(.high)
@@ -538,12 +540,12 @@ struct LockBackdrop: View {
                         .scaleEffect(x: -1, y: 1)
                         .rotationEffect(.degrees(90 - t.truncatingRemainder(dividingBy: 3600) * 5))
                         .blendMode(.screen)
-                        .opacity(0.5)
+                        .opacity(0.38)
                 }
                 ForEach(0..<3, id: \.self) { index in
                     blob(c[index], index: index, t: t)
                 }
-                Color.black.opacity(0.3)
+                Color.black.opacity(0.4)
             }
             .frame(width: size.width, height: size.height)
         }
@@ -560,7 +562,7 @@ struct LockBackdrop: View {
             .frame(width: r * 2, height: r * 2)
             .position(x: x, y: y)
             .blendMode(.plusLighter)
-            .opacity(0.5)
+            .opacity(0.4)
     }
 
     private var blurred: some View {
@@ -663,8 +665,8 @@ struct LockArtwork: View {
                 art(side)
                     .scaleEffect(x: 1, y: -1)
                     .mask(LinearGradient(colors: [.black.opacity(0.9), .clear], startPoint: .top,
-                                         endPoint: UnitPoint(x: 0.5, y: 0.6)))
-                    .opacity(0.24)
+                                         endPoint: UnitPoint(x: 0.5, y: 0.28)))
+                    .opacity(0.3)
                     .blur(radius: 1.5)
                     .offset(y: side + 6)
                     .allowsHitTesting(false)

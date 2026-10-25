@@ -98,7 +98,8 @@ struct SettingsRoot: View {
                     row(.about)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 260)
+            .navigationSplitViewColumnWidth(min: 215, ideal: 225, max: 280)
+            .frame(minWidth: 215)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             SectionDetail(section: router.selection ?? .general)
