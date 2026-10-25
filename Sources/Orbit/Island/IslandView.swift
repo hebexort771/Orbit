@@ -267,10 +267,14 @@ struct TransientContent: View {
         VStack(spacing: 0) {
             Wings(notch: metrics.notchWidth, wing: wing, height: metrics.notchHeight) {
                 left
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.leading, 14)
             } right: {
                 right
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.trailing, 14)
             }

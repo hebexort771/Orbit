@@ -110,7 +110,7 @@ enum TransientKind: Equatable {
             }
         case .bluetooth: return 52
         case .lock: return 40
-        case .calendar: return 64
+        case .calendar: return 80
         case .tray: return 64
         case .welcome: return 74
         }
