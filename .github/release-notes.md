@@ -1,25 +1,20 @@
-### Orbit 1.1 — la pantalla bloqueada, como Apple Music
+### Orbit 1.1.1 — se acopla a tu MacBook
 
-**Pantalla bloqueada nueva**
-- La portada grande, los controles y la letra a pantalla completa, con los colores de la canción moviéndose de fondo.
-- Cuatro estilos: Letras, Portada (con reflejo), Karaoke y Tarjeta. Toca la portada para pasar al siguiente.
-- Letra grande que se ilumina de izquierda a derecha al ritmo de la canción, con las otras líneas desenfocadas y puntos en los silencios.
-- La portada se inclina en 3D siguiendo el cursor, se encoge al pausar y, al desbloquear, vuela hasta el notch.
-- Reloj propio con tres tipos de letra, sin «a. m./p. m.», igual que el de macOS.
-- Vista previa a pantalla completa desde Ajustes, sin tener que bloquear el Mac.
+**Se acopla a tu Mac**
+- Orbit detecta qué MacBook tienes (Air 13"/15", Pro 14"/16") y calcula todo con las medidas reales de tu pantalla y de tu notch.
+- Nueva sección **Ajustes → General → Tu Mac**: modelo, pantalla y medidas del notch, con ajuste fino del ancho y del alto de la isla y un contorno azul para comprobar que calza exacto.
 
-**Se acopla a tu MacBook**
-- Orbit detecta qué Mac tienes (Air 13"/15", Pro 14"/16") y calcula todo con las medidas reales de tu pantalla y de tu notch.
-- La pantalla bloqueada se reparte según el alto de tu pantalla: el reloj debajo del notch y la música siempre por encima de tu foto y la contraseña.
-- Nueva sección **Ajustes → General → Tu Mac**: modelo, pantalla y notch, con ajuste fino del ancho y del alto y un contorno azul para comprobarlo.
-- Se corrigió la línea diagonal que aparecía en el fondo de colores.
+**Pantalla bloqueada corregida**
+- El reloj va justo debajo del notch y su tamaño depende de tu pantalla.
+- La portada, la letra y los controles se reparten en el espacio libre y ya no se acercan a tu foto ni a la contraseña.
+- El reloj ya no muestra «a. m./p. m.»: solo la hora, como el de macOS (respeta si usas 12 o 24 horas).
+- Se quitó la línea diagonal que aparecía en el fondo de colores.
+- El candado de la isla queda siempre por encima de la música.
+- La vista previa de Ajustes usa las medidas de tu propia pantalla.
 
-**Más personalización (Ajustes → Apariencia)**
-- Color de acento: de la portada, del sistema o el que tú elijas.
-- Color de la estela: según el aviso, tu acento o arcoíris.
-- Intensidad del brillo, tamaño de la isla abierta, redondez y borde.
-- Aviso de canción nueva con la portada, el título y el artista.
+**Vuelve un ajuste**
+- «Retraso al pasar el cursor» está otra vez en Ajustes → General, como antes.
 
-**Instalar:** abre `Orbit.dmg` y arrastra Orbit a Aplicaciones. La primera vez: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**.
+**Instalar:** cierra Orbit (icono de la barra de menús → Salir), abre `Orbit.dmg` y arrastra Orbit a Aplicaciones → Reemplazar. Si macOS no te deja abrirlo: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**.
 
 Requiere macOS 14 o posterior (Apple Silicon e Intel).
