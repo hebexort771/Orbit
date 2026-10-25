@@ -6,6 +6,13 @@ import SwiftUI
 @MainActor
 enum Snapshot {
     static func run(into folder: String, delegate: AppDelegate) {
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "--lang"), index + 1 < arguments.count,
+           let language = AppLanguage(rawValue: arguments[index + 1]) {
+            Settings.shared.language = language
+        } else {
+            Settings.shared.language = .es
+        }
         let directory = URL(fileURLWithPath: folder, isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         Task { @MainActor in
