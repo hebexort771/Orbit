@@ -3,7 +3,8 @@ name: Compilar Orbit
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -37,7 +38,8 @@ jobs:
 
       - name: Compilar Orbit.app
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="1.0.0"; fi
+          TAG="${{ github.event.release.tag_name }}"
+          if [[ -n "$TAG" ]]; then VERSION="${TAG#v}"; else VERSION="1.0.0"; fi
           chmod +x scripts/build-app.sh
           VERSION="$VERSION" BUILD="$GITHUB_RUN_NUMBER" ./scripts/build-app.sh
 
@@ -58,9 +60,10 @@ jobs:
           name: snapshots
           path: snapshots
 
-      - name: Publicar versión
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Adjuntar Orbit.dmg a la versión
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.release.tag_name }}
           files: build/Orbit.dmg
           body_path: .github/release-notes.md
