@@ -44,6 +44,9 @@ struct IslandBody: View {
                 .shadow(color: .black.opacity(presentation.isExpanded ? 0.55 : 0), radius: 18, y: 10)
             content
                 .clipShape(shape)
+            IslandEdge(island: shape)
+                .stroke(Color.white.opacity(presentation.isExpanded ? 0.09 : 0), lineWidth: 1)
+                .allowsHitTesting(false)
             CometOverlay(island: shape, request: model.comet)
                 .allowsHitTesting(false)
         }
@@ -426,31 +429,61 @@ struct BouncingSymbol: View {
     }
 }
 
-/// El logo de Orbit: un anillo con un punto en órbita.
+/// El logo de Orbit: un pequeño planeta con anillo y una luna en órbita.
 struct OrbitMark: View {
     var size: CGFloat
-    var color: Color = .white
     @Environment(\.orbitStatic) private var isStatic
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: isStatic)) { timeline in
             let t = timeline.date.timeIntervalSinceReferenceDate
-            let angle = isStatic ? 0.6 : t * 2.4
+            let angle = isStatic ? 0.9 : t * 2.2
+            let front = sin(angle) > 0
+            let ringHeight = size * 0.34
+            let line = max(1, size * 0.075)
             ZStack {
                 Ellipse()
-                    .stroke(color.opacity(0.55), lineWidth: max(1, size * 0.08))
-                    .frame(width: size, height: size * 0.62)
-                    .rotationEffect(.degrees(-18))
+                    .trim(from: 0.5, to: 1)
+                    .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .frame(width: size, height: ringHeight)
+                if !front { moon(angle, ringHeight) }
                 Circle()
-                    .fill(Color.orbitViolet)
-                    .frame(width: size * 0.36, height: size * 0.36)
-                Circle()
-                    .fill(color)
-                    .frame(width: size * 0.2, height: size * 0.2)
-                    .offset(x: cos(angle) * size * 0.5, y: sin(angle) * size * 0.31)
-                    .rotationEffect(.degrees(-18))
+                    .fill(LinearGradient(colors: [Color(red: 0.72, green: 0.52, blue: 1), Color(red: 1, green: 0.42, blue: 0.62)],
+                                         startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: size * 0.56, height: size * 0.56)
+                Ellipse()
+                    .trim(from: 0, to: 0.5)
+                    .stroke(Color.white.opacity(0.95), style: StrokeStyle(lineWidth: line, lineCap: .round))
+                    .frame(width: size, height: ringHeight)
+                if front { moon(angle, ringHeight) }
             }
+            .rotationEffect(.degrees(-22))
             .frame(width: size, height: size)
         }
+    }
+
+    private func moon(_ angle: Double, _ ringHeight: CGFloat) -> some View {
+        Circle()
+            .fill(Color.white)
+            .frame(width: size * 0.18, height: size * 0.18)
+            .shadow(color: .white.opacity(0.9), radius: size * 0.12)
+            .offset(x: cos(angle) * size / 2, y: sin(angle) * ringHeight / 2)
+    }
+}
+
+/// Contorno visible de la isla (sin el borde pegado a la pantalla).
+struct IslandEdge: Shape {
+    var island: IslandShape
+
+    var animatableData: IslandShape.AnimatableData {
+        get { island.animatableData }
+        set { island.animatableData = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var path = island.leftHalf(in: rect)
+        let mirror = CGAffineTransform(a: -1, b: 0, c: 0, d: 1, tx: rect.minX + rect.maxX, ty: 0)
+        path.addPath(island.leftHalf(in: rect), transform: mirror)
+        return path
     }
 }

@@ -290,24 +290,53 @@ final class NowPlayingService: ObservableObject {
 // MARK: - Portada de ejemplo
 
 enum DemoArt {
+    /// Una portada inventada: un sol retro sobre un horizonte de neón.
     static func make(size: CGFloat = 300) -> NSImage {
         let image = NSImage(size: NSSize(width: size, height: size))
         image.lockFocus()
         let rect = NSRect(x: 0, y: 0, width: size, height: size)
-        let gradient = NSGradient(colors: [
-            NSColor(srgbRed: 0.98, green: 0.23, blue: 0.55, alpha: 1),
-            NSColor(srgbRed: 0.45, green: 0.18, blue: 0.86, alpha: 1),
-            NSColor(srgbRed: 0.08, green: 0.05, blue: 0.25, alpha: 1)
-        ])
-        gradient?.draw(in: rect, angle: -60)
-        NSColor(white: 1, alpha: 0.9).setStroke()
-        let ring = NSBezierPath(ovalIn: rect.insetBy(dx: size * 0.22, dy: size * 0.36))
-        ring.lineWidth = size * 0.018
-        ring.stroke()
-        NSColor(srgbRed: 1, green: 0.85, blue: 0.4, alpha: 1).setFill()
-        NSBezierPath(ovalIn: NSRect(x: size * 0.4, y: size * 0.4, width: size * 0.2, height: size * 0.2)).fill()
-        NSColor.white.setFill()
-        NSBezierPath(ovalIn: NSRect(x: size * 0.73, y: size * 0.52, width: size * 0.06, height: size * 0.06)).fill()
+        NSGradient(colors: [
+            NSColor(srgbRed: 1.0, green: 0.36, blue: 0.56, alpha: 1),
+            NSColor(srgbRed: 0.55, green: 0.16, blue: 0.62, alpha: 1),
+            NSColor(srgbRed: 0.09, green: 0.05, blue: 0.27, alpha: 1)
+        ])?.draw(in: rect, angle: 90)
+
+        let horizon = size * 0.3
+        let sun = NSBezierPath(ovalIn: NSRect(x: size * 0.22, y: horizon - size * 0.12, width: size * 0.56, height: size * 0.56))
+        NSGradient(colors: [
+            NSColor(srgbRed: 1.0, green: 0.38, blue: 0.5, alpha: 1),
+            NSColor(srgbRed: 1.0, green: 0.86, blue: 0.36, alpha: 1)
+        ])?.draw(in: sun, angle: 90)
+
+        let band = NSColor(srgbRed: 0.93, green: 0.33, blue: 0.56, alpha: 1)
+        band.setFill()
+        for index in 0..<5 {
+            let y = horizon + size * (0.02 + 0.045 * CGFloat(index))
+            let height = size * (0.026 - 0.004 * CGFloat(index))
+            NSBezierPath(rect: NSRect(x: 0, y: y, width: size, height: height)).fill()
+        }
+
+        NSColor(srgbRed: 0.1, green: 0.03, blue: 0.2, alpha: 1).setFill()
+        NSBezierPath(rect: NSRect(x: 0, y: 0, width: size, height: horizon)).fill()
+        let grid = NSColor(srgbRed: 1.0, green: 0.4, blue: 0.75, alpha: 0.85)
+        grid.setStroke()
+        let vanishing = NSPoint(x: size / 2, y: horizon)
+        for index in -6...6 {
+            let line = NSBezierPath()
+            line.move(to: vanishing)
+            line.line(to: NSPoint(x: size / 2 + CGFloat(index) * size * 0.16, y: 0))
+            line.lineWidth = size * 0.006
+            line.stroke()
+        }
+        for index in 1...5 {
+            let t = CGFloat(index) / 5
+            let y = horizon * (1 - t * t)
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: 0, y: y))
+            line.line(to: NSPoint(x: size, y: y))
+            line.lineWidth = size * 0.006
+            line.stroke()
+        }
         image.unlockFocus()
         return image
     }

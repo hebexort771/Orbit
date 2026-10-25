@@ -124,3 +124,11 @@ enum Haptics {
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
     }
 }
+
+extension View {
+    /// Aplica un modificador solo en la app real (no al dibujar capturas).
+    @ViewBuilder
+    func live<Result: View>(_ enabled: Bool, _ transform: (Self) -> Result) -> some View {
+        if enabled { transform(self) } else { self }
+    }
+}

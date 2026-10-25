@@ -290,7 +290,7 @@ struct CalendarPage: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(list.prefix(3)) { event in
+                    ForEach(list.prefix(2)) { event in
                         HStack(spacing: 7) {
                             RoundedRectangle(cornerRadius: 1.5).fill(event.color).frame(width: 3, height: 26)
                             VStack(alignment: .leading, spacing: 1) {
@@ -304,8 +304,8 @@ struct CalendarPage: View {
                             }
                         }
                     }
-                    if list.count > 3 {
-                        Text(tr("y \(list.count - 3) más", "and \(list.count - 3) more"))
+                    if list.count > 2 {
+                        Text(tr("y \(list.count - 2) más", "and \(list.count - 2) more"))
                             .font(.system(size: 10.5, weight: .medium))
                             .foregroundStyle(.white.opacity(0.45))
                     }
@@ -451,9 +451,11 @@ struct TrayPage: View {
         .padding(.top, 6)
         .padding(.bottom, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onDrop(of: [UTType.fileURL], isTargeted: $pageTargeted) { providers in
-            receive(providers)
-            return true
+        .live(!isStatic) {
+            $0.onDrop(of: [UTType.fileURL], isTargeted: $pageTargeted) { providers in
+                receive(providers)
+                return true
+            }
         }
     }
 
@@ -471,20 +473,24 @@ struct TrayPage: View {
         HStack(spacing: 12) {
             zone(symbol: "tray.and.arrow.down.fill", title: tr("Guardar en la bandeja", "Keep in tray"),
                  color: .orbitBlue, targeted: trayTargeted)
-                .onDrop(of: [UTType.fileURL], isTargeted: $trayTargeted) { providers in
-                    receive(providers)
-                    return true
+                .live(!isStatic) {
+                    $0.onDrop(of: [UTType.fileURL], isTargeted: $trayTargeted) { providers in
+                        receive(providers)
+                        return true
+                    }
                 }
                 .staggered(1)
             if settings.trayAirDrop {
                 zone(symbol: "dot.radiowaves.left.and.right", title: "AirDrop",
                      color: .orbitViolet, targeted: airTargeted)
-                    .onDrop(of: [UTType.fileURL], isTargeted: $airTargeted) { providers in
-                        TrayStore.loadURLs(from: providers) { urls in
-                            model.dragActive = false
-                            tray.airDrop(urls)
+                    .live(!isStatic) {
+                        $0.onDrop(of: [UTType.fileURL], isTargeted: $airTargeted) { providers in
+                            TrayStore.loadURLs(from: providers) { urls in
+                                model.dragActive = false
+                                tray.airDrop(urls)
+                            }
+                            return true
                         }
-                        return true
                     }
                     .staggered(2)
             }
@@ -578,6 +584,7 @@ extension TrayPage {
 struct TrayTile: View {
     let item: TrayItem
     @EnvironmentObject private var tray: TrayStore
+    @Environment(\.orbitStatic) private var isStatic
     @State private var hovered = false
 
     var body: some View {
@@ -599,7 +606,7 @@ struct TrayTile: View {
         .scaleEffect(hovered ? 1.05 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hovered)
         .onHover { hovered = $0 }
-        .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
+        .live(!isStatic) { $0.onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() } }
         .onTapGesture(count: 2) { tray.open(item) }
         .contextMenu {
             Button(tr("Abrir", "Open")) { tray.open(item) }

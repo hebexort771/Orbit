@@ -154,7 +154,9 @@ struct SliderRow: View {
     var body: some View {
         LabeledContent {
             HStack(spacing: 10) {
-                Slider(value: $value, in: range, step: step)
+                Slider(value: Binding(get: { value },
+                                      set: { value = min(range.upperBound, max(range.lowerBound, ($0 / step).rounded() * step)) }),
+                       in: range)
                     .frame(minWidth: 160, maxWidth: 240)
                 Text(format(value))
                     .font(.body.monospacedDigit())
@@ -264,7 +266,7 @@ struct IslandPreview: View {
     var body: some View {
         ZStack(alignment: .top) {
             PreviewWallpaper()
-            PreviewMenuBar()
+            PreviewMenuBar(scale: scale)
             IslandCanvas(model: model)
                 .services(Services.demo)
                 .scaleEffect(scale, anchor: .top)
@@ -272,7 +274,8 @@ struct IslandPreview: View {
                 .allowsHitTesting(false)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: height)
+        .frame(height: height, alignment: .top)
+        .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
         .padding(.vertical, 4)
@@ -335,20 +338,23 @@ struct PreviewWallpaper: View {
 }
 
 struct PreviewMenuBar: View {
+    var scale: CGFloat = 1
+
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "apple.logo").font(.system(size: 12, weight: .semibold))
-            Text("Finder").font(.system(size: 12, weight: .bold))
-            Text(tr("Archivo", "File")).font(.system(size: 12))
-            Text(tr("Edición", "Edit")).font(.system(size: 12))
+        let size = 12 * scale
+        HStack(spacing: 14 * scale) {
+            Image(systemName: "apple.logo").font(.system(size: size, weight: .semibold))
+            Text("Finder").font(.system(size: size, weight: .bold))
+            Text(tr("Archivo", "File")).font(.system(size: size))
+            Text(tr("Edición", "Edit")).font(.system(size: size))
             Spacer()
-            Image(systemName: "wifi").font(.system(size: 11, weight: .semibold))
-            Image(systemName: "battery.75percent").font(.system(size: 12))
-            Text(tr("vie 9:41", "Fri 9:41")).font(.system(size: 12, weight: .medium))
+            Image(systemName: "wifi").font(.system(size: size - 1, weight: .semibold))
+            Image(systemName: "battery.75percent").font(.system(size: size))
+            Text(tr("vie 9:41", "Fri 9:41")).font(.system(size: size, weight: .medium))
         }
         .foregroundStyle(.white.opacity(0.92))
-        .padding(.horizontal, 14)
-        .frame(height: 32)
+        .padding(.horizontal, 14 * scale)
+        .frame(height: 32 * scale)
         .background(Color.white.opacity(0.12))
     }
 }
