@@ -26,7 +26,7 @@ Música, avisos, calendario y archivos en el notch de tu Mac, con animaciones fl
 - **Avisos** — cargador conectado, batería baja, carga completa, AirPods y otros dispositivos Bluetooth (con su batería), volumen y brillo, bloqueo y desbloqueo.
 - **Calendario** — el día de hoy, tus eventos y el mes completo. Te avisa unos minutos antes de cada evento.
 - **Bandeja de archivos** — arrastra archivos al notch para guardarlos y sácalos cuando los necesites. También puedes soltarlos en la zona de AirDrop.
-- **Pantalla bloqueada** — un reproductor con portada, controles y letras sin desbloquear tu Mac.
+- **Pantalla bloqueada como Apple Music** — la portada grande, los controles y la letra a pantalla completa, con los colores de la canción moviéndose de fondo. Toca la portada para cambiar entre cuatro estilos: Letras, Portada, Karaoke y Tarjeta. Al desbloquear, la portada vuela hasta el notch.
 - **Todos los Mac** — usa el notch real en los MacBook que lo tienen, y una isla virtual (notch o flotante) en Mac sin notch y monitores externos.
 
 <p align="center">
@@ -39,7 +39,11 @@ Música, avisos, calendario y archivos en el notch de tu Mac, con animaciones fl
 </p>
 
 <p align="center">
-  <img src="docs/pantalla-bloqueada.png" width="49%" alt="Reproductor en la pantalla bloqueada">
+  <img src="docs/pantalla-bloqueada.png" width="720" alt="Pantalla bloqueada con portada, controles y letra">
+</p>
+
+<p align="center">
+  <img src="docs/estilos-bloqueo.png" width="49%" alt="Los cuatro estilos de la pantalla bloqueada">
   <img src="docs/bandeja.png" width="49%" alt="Bandeja de archivos y AirDrop">
 </p>
 
@@ -58,7 +62,9 @@ También puedes elegir los estilos **Suave** o **Rápida** y ajustar la velocida
 
 En **Ajustes de Orbit** (icono de la barra de menús, clic derecho en el notch o el engranaje de la isla abierta) puedes cambiarlo todo, con una vista previa animada en cada sección:
 
-General · Batería · Conectividad · Pantalla · Sonido · Bloqueo · Reproduciendo · Calendario · Bandeja de archivos · Pantalla bloqueada
+General · Apariencia · Batería · Conectividad · Pantalla · Sonido · Bloqueo · Reproduciendo · Calendario · Bandeja de archivos · Pantalla bloqueada
+
+En **Apariencia** eliges el color de acento (de la portada, del sistema o uno tuyo), el color de la estela (según el aviso, tu acento o arcoíris), la intensidad del brillo, el tamaño y la redondez de la isla. En **Pantalla bloqueada** eliges el estilo, el fondo, el reloj y el tamaño, la alineación y el desenfoque de la letra, con una vista previa en vivo y un botón para verla a pantalla completa.
 
 <p align="center">
   <img src="docs/ajustes.png" width="620" alt="Ajustes de Orbit">
