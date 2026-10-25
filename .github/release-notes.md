@@ -1,4 +1,12 @@
-### Orbit 1.1.1 — se acopla a tu MacBook
+### Orbit 1.1.2 — pantalla bloqueada bien cuadrada
+
+**Corregido en esta versión**
+- La portada ya no queda torcida: la inclinación 3D viene apagada y, si la activas, solo se mueve con el cursor encima de la portada y vuelve a quedar recta sola.
+- Los tres puntos del inicio de la canción ya no se montan encima de la primera línea de la letra.
+- Portada, controles y letra forman un bloque centrado: los controles miden lo mismo que la portada y la línea que suena queda a la altura de la portada.
+- Más espacio entre la música y tu foto de usuario y contraseña.
+
+### Novedades de 1.1.1
 
 **Se acopla a tu Mac**
 - Orbit detecta qué MacBook tienes (Air 13"/15", Pro 14"/16") y calcula todo con las medidas reales de tu pantalla y de tu notch.
