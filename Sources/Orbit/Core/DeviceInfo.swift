@@ -67,7 +67,9 @@ enum DeviceInfo {
         guard let id = screen.displayID else { return nil }
         let mm = CGDisplayScreenSize(id)
         guard mm.width > 0, mm.height > 0 else { return model?.inches }
-        return ((mm.width * mm.width + mm.height * mm.height).squareRoot() / 25.4 * 10).rounded() / 10
+        let w = Double(mm.width), h = Double(mm.height)
+        let diagonal: Double = (w * w + h * h).squareRoot() / 25.4
+        return (diagonal * 10).rounded() / 10
     }
 
     /// Resolución real en píxeles de una pantalla.
