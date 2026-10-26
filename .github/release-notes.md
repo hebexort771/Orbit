@@ -1,23 +1,18 @@
-### Orbit 1.2.1 — bloquear y desbloquear, más fluido
+### Orbit 1.3.0 — letra al ritmo del cantante y notch líquido
 
-**Animaciones nuevas**
-- Al bloquear, el fondo de la canción ya está preparado de antes: el cambio es instantáneo y nada se traba.
-- La portada aparece desde un desenfoque, luego los controles y la letra entra línea por línea, como una cascada.
-- Al desbloquear con tu huella, la portada vuela entera hasta el notch, la letra sube y se apaga, y tu fondo de siempre vuelve con un fundido suave detrás de tus ventanas, sin saltos.
-- Mientras no está bloqueada, la pantalla de Orbit no se queda trabajando de fondo.
+**Letra palabra por palabra**
+- La línea que suena se ilumina palabra por palabra mientras el cantante la canta, con Apple Music, Spotify, YouTube Music o cualquier app que se vea en el notch.
+- Cada palabra sube un poquito al cantarse, y las notas largas brillan más.
+- Las líneas suben un instante antes de cantarse, para que ya estén en su sitio.
+- Funciona en la isla abierta y en la pantalla bloqueada.
+- Si una letra trae el tiempo exacto de cada palabra, se usa tal cual. Si no, Orbit lo calcula según las sílabas.
+- Nuevo en **Ajustes → Reproduciendo**: «Sincronía de la letra», para adelantarla o atrasarla si no coincide con el cantante.
 
-### Novedades de 1.2.0 — pantalla completa con el reloj de tu Mac
-
-**Pantalla bloqueada a pantalla completa**
-- Los colores de la canción ocupan toda la pantalla, de arriba abajo, como en Apple Music.
-- Mientras la Mac está bloqueada, Orbit pone esos colores como fondo de pantalla. Así el reloj, tu foto y la contraseña son los de macOS y quedan encima. Al desbloquear vuelve tu fondo de siempre.
-- Orbit ya no agrega su propio reloj en este modo.
-- Debajo de la portada: título, artista, barra de progreso y controles como en Apple Music, sin recuadro.
-- Al tocar la portada cambia de estilo al instante, sin ningún texto.
-
-**Si en tu Mac no funciona**
-- En **Ajustes → Pantalla bloqueada → Pantalla completa y reloj** puedes elegir «Encima de todo»: Orbit tapa la pantalla con un reloj parecido al de macOS y deja ver tu foto y la contraseña.
-- En la misma sección, «Copiar informe» copia lo que Orbit encontró en tu pantalla bloqueada para poder ajustarlo.
+**Notch líquido**
+- Al acercar el cursor por debajo del notch, el borde se estira hacia él como agua y cuelga una gota brillante que sigue al cursor.
+- Si alejas el cursor, la gota vuelve a entrar al notch y el borde ondula.
+- Al abrirse y cerrarse, la isla ondula como el agua al asentarse.
+- Se puede apagar en **Ajustes → Apariencia → Notch líquido**.
 
 **Instalar:** cierra Orbit (icono de la barra de menús → Salir), abre `Orbit.dmg` y arrastra Orbit a Aplicaciones → Reemplazar. Si macOS no te deja abrirlo: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**.
 

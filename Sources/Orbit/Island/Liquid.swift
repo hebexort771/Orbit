@@ -229,7 +229,7 @@ final class LiquidField: ObservableObject {
                 let k = (t - 0.32) / 0.68
                 dropTarget = 2.5 + 6.5 * k
                 dropXTarget = cxTarget + (p.x - cxTarget) * 0.5
-                dropYTarget = g.height + ampTarget + dropTarget * 0.9 + min(below * 0.4, 44) * k
+                dropYTarget = g.height + ampTarget + dropTarget * 0.9 + min(below * 0.34, 40) * k
             }
         }
 
@@ -323,13 +323,13 @@ struct LiquidIslandFill: View {
     @ViewBuilder
     private func shine(_ deform: LiquidDeform) -> some View {
         let strength = max(0, min(1, deform.amp / 12))
-        if strength > 0.02 || deform.drop != nil {
+        if strength > 0.1 || deform.drop != nil {
             GeometryReader { geo in
                 let mid = geo.size.width / 2
                 ZStack(alignment: .topLeading) {
                     Path { p in
-                        let from = deform.cx - deform.width * 0.8
-                        let to = deform.cx + deform.width * 0.8
+                        let from = deform.cx - deform.width * 0.55
+                        let to = deform.cx + deform.width * 0.55
                         let lo = -layout.width / 2 + layout.bottom
                         let hi = layout.width / 2 - layout.bottom
                         var x = from
@@ -340,9 +340,9 @@ struct LiquidIslandFill: View {
                             x += 2
                         }
                     }
-                    .stroke(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.28), .white.opacity(0)],
+                    .stroke(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.2), .white.opacity(0)],
                                            startPoint: .leading, endPoint: .trailing),
-                            style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                            style: StrokeStyle(lineWidth: 0.8, lineCap: .round))
                     .opacity(strength)
                     .blur(radius: 0.4)
 
