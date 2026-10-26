@@ -352,8 +352,8 @@ struct NowPlayingSettings: View {
             }
             Toggle(isOn: $settings.lyricsEnabled) {
                 Text(tr("Letras sincronizadas", "Synced lyrics"))
-                Text(tr("Desde LRCLIB. La línea que suena se ilumina palabra por palabra, al ritmo del cantante",
-                        "From LRCLIB. The current line lights up word by word, in time with the singer"))
+                Text(tr("Desde LRCLIB. Como en Apple Music: cada línea se enciende justo cuando se canta, y palabra por palabra si la letra trae esos tiempos",
+                        "From LRCLIB. Like Apple Music: each line lights up right when it's sung, and word by word when the lyrics include word timings"))
             }
             if settings.lyricsEnabled {
                 SliderRow(title: tr("Sincronía de la letra", "Lyrics timing"), value: $settings.lyricsOffset,
@@ -363,6 +363,16 @@ struct NowPlayingSettings: View {
                         "If lyrics lag behind the singer, raise it (+); if they run ahead, lower it (−)."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                Toggle(isOn: $settings.lyricsEstimateWords) {
+                    Text(tr("Calcular palabra por palabra", "Estimate word by word"))
+                    Text(tr("Para letras que solo traen el tiempo de cada línea. Es aproximado: puede adelantarse o atrasarse al cantante",
+                            "For lyrics that only have line timings. It's approximate and may drift from the singer"))
+                }
+            }
+            Toggle(isOn: $settings.hdArtwork) {
+                Text(tr("Portadas en alta calidad", "High-quality artwork"))
+                Text(tr("Si la app de música entrega una portada pequeña, Orbit busca la original en 1200 px en el catálogo de Apple",
+                        "If the music app provides a small cover, Orbit finds the original at 1200 px in Apple's catalog"))
             }
             Toggle(tr("Ocultar si la app de música está al frente", "Hide while the music app is in front"), isOn: $settings.hideWhenSourceActive)
         }

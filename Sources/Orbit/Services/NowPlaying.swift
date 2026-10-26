@@ -34,6 +34,7 @@ final class NowPlayingService: ObservableObject {
     private var adapter: MediaAdapter?
     private var restarts: [Date] = []
     private var lyricsTask: Task<Void, Never>?
+    private var artworkTask: Task<Void, Never>?
     private var workspaceObserver: NSObjectProtocol?
     private var artworkAccent: Color = .white
     private var settingsSink: AnyCancellable?
@@ -238,9 +239,17 @@ final class NowPlayingService: ObservableObject {
         if let mode = s.repeatMode { repeatMode = mode }
 
         switch s.artwork {
-        case .data(let data): setArtwork(NSImage(data: data))
-        case .removed: setArtwork(nil)
-        case .unchanged: if changed && s.artworkMissing { setArtwork(nil) }
+        case .data(let data):
+            setArtwork(NSImage(data: data))
+            upgradeArtwork(for: newTrack, thumbnail: data)
+        case .removed:
+            setArtwork(nil)
+            upgradeArtwork(for: newTrack, thumbnail: nil)
+        case .unchanged:
+            if changed && s.artworkMissing {
+                setArtwork(nil)
+                upgradeArtwork(for: newTrack, thumbnail: nil)
+            }
         }
         if changed { loadLyrics(for: newTrack) }
         objectWillChange.send()
@@ -269,12 +278,32 @@ final class NowPlayingService: ObservableObject {
         resolveAccent()
     }
 
+    /// Cambia la portada pequeña por la original en alta calidad, sin animación (se ve igual, pero nítida).
+    private func upgradeArtwork(for track: TrackInfo, thumbnail: Data?) {
+        artworkTask?.cancel()
+        guard Settings.shared.hdArtwork, !isDemo else { return }
+        let serial = artworkSerial
+        artworkTask = Task { @MainActor [weak self] in
+            guard let data = await ArtworkFetcher.shared.hiRes(title: track.title, artist: track.artist, album: track.album,
+                                                               duration: track.duration, thumbnail: thumbnail),
+                  let self, !Task.isCancelled, self.track?.key == track.key,
+                  let image = NSImage(data: data) else { return }
+            if self.artwork == nil || self.artworkSerial != serial {
+                // No había portada: la de alta calidad pasa a ser la portada (con sus colores).
+                self.setArtwork(image)
+            } else {
+                self.artwork = image
+            }
+        }
+    }
+
     // MARK: Letras
 
+    /// La línea que se está cantando, exactamente en su momento (como Apple Music).
     func currentLyricIndex(at time: Double) -> Int? {
         guard !lyrics.isEmpty else { return nil }
         var low = 0, high = lyrics.count - 1, found: Int?
-        let t = time + 0.25
+        let t = time + 0.02
         while low <= high {
             let mid = (low + high) / 2
             if lyrics[mid].time <= t { found = mid; low = mid + 1 } else { high = mid - 1 }

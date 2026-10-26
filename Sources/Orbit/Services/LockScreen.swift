@@ -821,8 +821,7 @@ struct LockArtwork: View {
         }
         .scaleEffect(media.isPlaying ? 1 : 0.86)
         .animation(.spring(response: 0.55, dampingFraction: 0.72), value: media.isPlaying)
-        .rotation3DEffect(.degrees(Double(-tilt.height) * 4), axis: (x: 1, y: 0, z: 0), perspective: 0.3)
-        .rotation3DEffect(.degrees(Double(tilt.width) * 5), axis: (x: 0, y: 1, z: 0), perspective: 0.3)
+        .modifier(Tilt(tilt: tilt, enabled: settings.lockTilt))
         .opacity(leaving ? 0 : (shown ? 1 : 0))
         .animation(leaving ? .easeIn(duration: 0.26).delay(0.4) : nil, value: leaving)
         .scaleEffect(shown || leaving ? 1 : 0.8)
@@ -839,6 +838,7 @@ struct LockArtwork: View {
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
+                    .antialiased(true)
                     .aspectRatio(contentMode: .fill)
                     .frame(width: side, height: side)
                     .id(media.artworkSerial)
@@ -855,6 +855,23 @@ struct LockArtwork: View {
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+}
+
+/// Inclinación 3D de la portada. Solo se aplica si está activada: así la portada se dibuja plana
+/// y a resolución completa (una transformación 3D, aunque sea de 0°, puede suavizar la imagen).
+struct Tilt: ViewModifier {
+    let tilt: CGSize
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .rotation3DEffect(.degrees(Double(-tilt.height) * 4), axis: (x: 1, y: 0, z: 0), perspective: 0.3)
+                .rotation3DEffect(.degrees(Double(tilt.width) * 5), axis: (x: 0, y: 1, z: 0), perspective: 0.3)
+        } else {
+            content
+        }
     }
 }
 
@@ -1086,10 +1103,10 @@ struct LockLyrics: View {
     @ObservedObject private var settings = Settings.shared
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
+        TimelineView(.periodic(from: .now, by: 0.05)) { timeline in
             let time = media.lyricsTime(at: timeline.date)
-            // La línea sube un instante antes de que se cante, para que ya esté en su sitio.
-            let current = media.currentLyricIndex(at: time + 0.18) ?? -1
+            // Como Apple Music: la línea se enciende justo cuando empieza a cantarse.
+            let current = media.currentLyricIndex(at: time) ?? -1
             lines(time: time, current: current)
         }
         .frame(width: size.width, height: size.height)
@@ -1143,7 +1160,8 @@ struct LockLyrics: View {
                             LyricRow(text: line.text, size: fontSize, current: isCurrent, distance: distance,
                                      progress: progress, singleLine: heights[index] < fontSize * 1.5,
                                      blur: settings.lockLyricsBlur, align: textAlign,
-                                     words: isCurrent ? LyricTiming.words(lyrics, index: index, duration: media.track?.duration ?? 0) : [],
+                                     words: isCurrent && (!line.words.isEmpty || settings.lyricsEstimateWords)
+                                        ? LyricTiming.words(lyrics, index: index, duration: media.track?.duration ?? 0) : [],
                                      glow: glow, sung: index < current)
                         }
                     }
@@ -1185,14 +1203,11 @@ struct LyricRow: View {
                 KaraokeLive(words: words, size: size, center: align == .center, glow: glow)
                     .transition(.opacity)
             } else {
-                label.foregroundStyle(.white.opacity(current ? 0.3 : max(0.14, (sung ? 0.36 : 0.42) - 0.07 * Double(distance))))
-                if current {
-                    label
-                        .foregroundStyle(.white)
-                        .mask(fill)
-                        .shadow(color: glow.opacity(0.35), radius: size * 0.3)
-                        .animation(.linear(duration: 0.1), value: progress)
-                }
+                // Como Apple Music cuando la letra no trae el tiempo de cada palabra:
+                // la línea entera se enciende en el momento exacto en que se canta.
+                label
+                    .foregroundStyle(.white.opacity(current ? 1 : max(0.14, (sung ? 0.34 : 0.42) - 0.07 * Double(distance))))
+                    .shadow(color: glow.opacity(current ? 0.35 : 0), radius: current ? size * 0.32 : 0)
             }
         }
         .blur(radius: blur && !current ? min(5, CGFloat(distance) * 1.25) : 0)
@@ -1200,17 +1215,6 @@ struct LyricRow: View {
         .animation(.spring(response: 0.55, dampingFraction: 0.85), value: current)
     }
 
-    /// La línea se ilumina de izquierda a derecha al ritmo de la canción.
-    @ViewBuilder
-    private var fill: some View {
-        if singleLine {
-            LinearGradient(stops: [.init(color: .black, location: max(0, progress * 1.1 - 0.08)),
-                                   .init(color: .black.opacity(0.0), location: min(1, progress * 1.1 + 0.04))],
-                           startPoint: .leading, endPoint: .trailing)
-        } else {
-            Color.black
-        }
-    }
 }
 
 /// Los tres puntos de los silencios instrumentales; se encienden según avanza la pausa.

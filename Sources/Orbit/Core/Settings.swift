@@ -394,6 +394,8 @@ final class Settings: ObservableObject {
     @Pref("hideWhenSourceActive") var hideWhenSourceActive = false
     @Pref("lyricsEnabled") var lyricsEnabled = true
     @Pref("lyricsOffset") var lyricsOffset = 0.0
+    @Pref("lyricsEstimateWords") var lyricsEstimateWords = false
+    @Pref("hdArtwork") var hdArtwork = true
     @Pref("liquidNotch") var liquidNotch = true
     @Pref("trackPeek") var trackPeek = true
 
