@@ -11,14 +11,6 @@
 
 ### Novedades de 1.3.0 — notch líquido
 
-**Letra palabra por palabra**
-- La línea que suena se ilumina palabra por palabra mientras el cantante la canta, con Apple Music, Spotify, YouTube Music o cualquier app que se vea en el notch.
-- Cada palabra sube un poquito al cantarse, y las notas largas brillan más.
-- Las líneas suben un instante antes de cantarse, para que ya estén en su sitio.
-- Funciona en la isla abierta y en la pantalla bloqueada.
-- Si una letra trae el tiempo exacto de cada palabra, se usa tal cual. Si no, Orbit lo calcula según las sílabas.
-- Nuevo en **Ajustes → Reproduciendo**: «Sincronía de la letra», para adelantarla o atrasarla si no coincide con el cantante.
-
 **Notch líquido**
 - Al acercar el cursor por debajo del notch, el borde se estira hacia él como agua y cuelga una gota brillante que sigue al cursor.
 - Si alejas el cursor, la gota vuelve a entrar al notch y el borde ondula.
