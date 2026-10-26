@@ -592,10 +592,14 @@ struct LockBackdrop: View {
         if let center = loginHole {
             ZStack {
                 Color.black
-                Ellipse()
-                    .fill(RadialGradient(colors: [.black, .black.opacity(0.85), .black.opacity(0)], center: .center,
-                                         startRadius: 0, endRadius: size.width * 0.17))
-                    .frame(width: size.width * 0.34, height: size.height * 0.36)
+                // Un círculo que se desvanece hasta su borde (sin líneas), estirado a lo ancho.
+                let radius = size.height * 0.2
+                Circle()
+                    .fill(RadialGradient(stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.9), location: 0.45),
+                                                 .init(color: .black.opacity(0), location: 1)],
+                                         center: .center, startRadius: 0, endRadius: radius))
+                    .frame(width: radius * 2, height: radius * 2)
+                    .scaleEffect(x: 1.5, y: 1)
                     .position(center)
                     .blendMode(.destinationOut)
             }
@@ -701,14 +705,13 @@ struct LockClock: View {
             VStack(spacing: dateSize * 0.15) {
                 Text(dateText(timeline.date))
                     .font(.system(size: dateSize, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.white.opacity(0.7))
                 Text(LockClock.time(timeline.date))
                     .font(.system(size: timeSize, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.62))
+                    .foregroundStyle(.white.opacity(0.55))
                     .contentTransition(.numericText())
             }
-            .blendMode(.plusLighter)
         }
     }
 
