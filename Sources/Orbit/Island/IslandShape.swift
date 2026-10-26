@@ -6,6 +6,8 @@ struct IslandShape: Shape {
     var ear: CGFloat
     var bottom: CGFloat
     var topCorner: CGFloat
+    /// Deformación de agua del borde de abajo (no se anima con SwiftUI: la mueve su propia física).
+    var liquid: LiquidDeform? = nil
 
     var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
         get { AnimatablePair(ear, AnimatablePair(bottom, topCorner)) }
@@ -43,6 +45,7 @@ struct IslandShape: Shape {
             p.addLine(to: CGPoint(x: f.right - f.corner, y: f.top))
             p.addArc(tangent1End: CGPoint(x: f.right, y: f.top), tangent2End: CGPoint(x: f.right, y: f.bottom), radius: f.corner)
             p.addArc(tangent1End: CGPoint(x: f.right, y: f.bottom), tangent2End: CGPoint(x: f.left, y: f.bottom), radius: f.base)
+            addLiquidBottom(&p, from: f.right - f.base, to: f.left + f.base, y: f.bottom, mid: rect.midX)
             p.addArc(tangent1End: CGPoint(x: f.left, y: f.bottom), tangent2End: CGPoint(x: f.left, y: f.top), radius: f.base)
             p.addArc(tangent1End: CGPoint(x: f.left, y: f.top), tangent2End: CGPoint(x: f.right, y: f.top), radius: f.corner)
             p.closeSubpath()
@@ -57,6 +60,7 @@ struct IslandShape: Shape {
             p.addLine(to: CGPoint(x: f.left, y: f.top))
         }
         p.addArc(tangent1End: CGPoint(x: f.left, y: f.bottom), tangent2End: CGPoint(x: f.right, y: f.bottom), radius: f.base)
+        addLiquidBottom(&p, from: f.left + f.base, to: f.right - f.base, y: f.bottom, mid: rect.midX)
         p.addArc(tangent1End: CGPoint(x: f.right, y: f.bottom), tangent2End: CGPoint(x: f.right, y: f.top), radius: f.base)
         if f.ear > 0.5 {
             p.addArc(tangent1End: CGPoint(x: f.right, y: f.top), tangent2End: CGPoint(x: f.right + f.ear, y: f.top), radius: f.ear)

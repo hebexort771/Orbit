@@ -39,9 +39,9 @@ struct IslandBody: View {
     var body: some View {
         ZStack(alignment: .top) {
             glow
-            shape
-                .fill(Color.black)
-                .shadow(color: .black.opacity(presentation.isExpanded ? 0.55 : 0), radius: 18, y: 10)
+            LiquidIslandFill(shape: shape, layout: layout,
+                             collapsed: !presentation.isExpanded && presentation != .hidden,
+                             shadow: presentation.isExpanded, field: model.liquid)
             content
                 .clipShape(shape)
             IslandEdge(island: shape)

@@ -352,7 +352,17 @@ struct NowPlayingSettings: View {
             }
             Toggle(isOn: $settings.lyricsEnabled) {
                 Text(tr("Letras sincronizadas", "Synced lyrics"))
-                Text(tr("Desde LRCLIB, se buscan automáticamente", "From LRCLIB, fetched automatically"))
+                Text(tr("Desde LRCLIB. La línea que suena se ilumina palabra por palabra, al ritmo del cantante",
+                        "From LRCLIB. The current line lights up word by word, in time with the singer"))
+            }
+            if settings.lyricsEnabled {
+                SliderRow(title: tr("Sincronía de la letra", "Lyrics timing"), value: $settings.lyricsOffset,
+                          range: -1.5...1.5, step: 0.1,
+                          format: { abs($0) < 0.05 ? tr("Exacta", "Exact") : String(format: "%+.1f s", $0) })
+                Text(tr("Si la letra va atrasada respecto al cantante, súbelo (+); si va adelantada, bájalo (−).",
+                        "If lyrics lag behind the singer, raise it (+); if they run ahead, lower it (−)."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
             Toggle(tr("Ocultar si la app de música está al frente", "Hide while the music app is in front"), isOn: $settings.hideWhenSourceActive)
         }
@@ -596,6 +606,11 @@ struct AppearanceSettings: View {
                 .foregroundStyle(.secondary)
             SliderRow(title: tr("Velocidad", "Speed"), value: $settings.animationSpeed, range: 0.6...1.6, step: 0.05,
                       format: { String(format: "%.0f%%", $0 * 100) })
+            Toggle(isOn: $settings.liquidNotch) {
+                Text(tr("Notch líquido", "Liquid notch"))
+                Text(tr("Al acercar el cursor, el notch se estira como agua hacia él y suelta una gota; al abrirse o cerrarse, ondula",
+                        "As the pointer comes close, the notch stretches toward it like water and lets a drop hang; it ripples as it opens and closes"))
+            }
         }
     }
 

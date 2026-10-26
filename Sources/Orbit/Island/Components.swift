@@ -459,11 +459,8 @@ struct LyricsLines: View {
     var alignment: HorizontalAlignment = .leading
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.25)) { timeline in
-            let current = media.currentLyricIndex(at: media.elapsed(at: timeline.date)) ?? -1
-            content(current)
-        }
-        .clipped()
+        content(0)
+            .clipped()
     }
 
     @ViewBuilder
@@ -480,22 +477,11 @@ struct LyricsLines: View {
             .foregroundStyle(.white.opacity(0.5))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            let indices = Array(max(-1, current - 1)...(current + 1)).filter { $0 >= 0 && $0 < media.lyrics.count }
-            VStack(alignment: alignment, spacing: 5) {
-                ForEach(indices, id: \.self) { index in
-                    let text = media.lyrics[index].text
-                    Text(text.isEmpty ? "♪" : text)
-                        .font(.system(size: index == current ? fontSize + 1 : fontSize - 1,
-                                      weight: index == current ? .bold : .semibold))
-                        .foregroundStyle(index == current ? Color.white : Color.white.opacity(0.32))
-                        .lineLimit(1)
-                        .shadow(color: index == current ? accent.opacity(0.55) : .clear, radius: 8)
-                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity),
-                                                removal: .move(edge: .top).combined(with: .opacity)))
-                }
+            // La misma cascada de la pantalla bloqueada, en pequeño: la línea que suena se ilumina palabra por palabra.
+            GeometryReader { geo in
+                LockLyrics(size: geo.size, fontSize: fontSize + 1, align: alignment == .center ? .center : .leading,
+                           anchor: 0.42, compact: true, glow: accent)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: alignment, vertical: .center))
-            .animation(.spring(response: 0.45, dampingFraction: 0.82), value: current)
         }
     }
 }

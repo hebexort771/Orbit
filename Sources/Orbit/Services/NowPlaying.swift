@@ -92,6 +92,11 @@ final class NowPlayingService: ObservableObject {
         return max(0, value)
     }
 
+    /// El tiempo que usa la letra: el de la canción más el ajuste de sincronía de Ajustes.
+    func lyricsTime(at date: Date = Date()) -> Double {
+        elapsed(at: date) + Settings.shared.lyricsOffset
+    }
+
     func progress(at date: Date = Date()) -> Double {
         guard let duration = track?.duration, duration > 0 else { return 0 }
         return elapsed(at: date) / duration

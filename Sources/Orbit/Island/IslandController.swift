@@ -185,7 +185,23 @@ final class IslandController {
         }
         let inside = hotRect().contains(point)
         panel.ignoresMouseEvents = !inside
+        feedLiquid(point, inside: inside)
         setHovering(inside)
+    }
+
+    /// Le cuenta al agua del notch dónde está el cursor (solo si está cerca).
+    private func feedLiquid(_ point: NSPoint, inside: Bool) {
+        guard settings.liquidNotch else { return }
+        let local = liquidPoint(point)
+        let layout = model.currentLayout
+        let near = abs(local.x) < layout.outerWidth / 2 + 170 && local.y > -24 && local.y < layout.height + 170
+        model.liquid.point(near ? local : nil, inside: inside)
+    }
+
+    /// El cursor medido desde el centro de arriba de la isla.
+    private func liquidPoint(_ point: NSPoint) -> CGPoint {
+        let frame = panel.frame
+        return CGPoint(x: point.x - frame.midX, y: frame.maxY - point.y - model.metrics.topInset)
     }
 
     private func setHovering(_ inside: Bool) {
@@ -193,6 +209,7 @@ final class IslandController {
             leaveTask?.cancel()
             guard !model.hovering else { return }
             model.hovering = true
+            if settings.liquidNotch { model.liquid.splash(at: liquidPoint(NSEvent.mouseLocation).x, strength: 3) }
             Haptics.tap()
             guard settings.hoverToOpen, !model.expanded else { return }
             hoverTask?.cancel()
@@ -223,12 +240,16 @@ final class IslandController {
             // Sin música: mejor mostrar algo útil.
             model.page = .calendar
         }
-        if !model.expanded { Haptics.level() }
+        if !model.expanded {
+            Haptics.level()
+            if settings.liquidNotch { model.liquid.splash(strength: 3.5) }
+        }
         model.expanded = true
         model.clearTransient()
     }
 
     func collapse() {
+        if model.expanded && settings.liquidNotch { model.liquid.splash(strength: 4) }
         model.expanded = false
         panel.ignoresMouseEvents = !hotRect().contains(NSEvent.mouseLocation)
     }

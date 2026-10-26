@@ -1080,14 +1080,16 @@ struct LockLyrics: View {
     var anchor: CGFloat = 0.36
     var compact = false
     var phase: LockScreenState.Phase = .shown
+    var glow: Color = .white
     @Environment(\.orbitStatic) private var isStatic
     @EnvironmentObject private var media: NowPlayingService
     @ObservedObject private var settings = Settings.shared
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 0.1)) { timeline in
-            let time = media.elapsed(at: timeline.date)
-            let current = media.currentLyricIndex(at: time) ?? -1
+            let time = media.lyricsTime(at: timeline.date)
+            // La línea sube un instante antes de que se cante, para que ya esté en su sitio.
+            let current = media.currentLyricIndex(at: time + 0.18) ?? -1
             lines(time: time, current: current)
         }
         .frame(width: size.width, height: size.height)
@@ -1140,7 +1142,9 @@ struct LockLyrics: View {
                         } else {
                             LyricRow(text: line.text, size: fontSize, current: isCurrent, distance: distance,
                                      progress: progress, singleLine: heights[index] < fontSize * 1.5,
-                                     blur: settings.lockLyricsBlur, align: textAlign)
+                                     blur: settings.lockLyricsBlur, align: textAlign,
+                                     words: isCurrent ? LyricTiming.words(lyrics, index: index, duration: media.track?.duration ?? 0) : [],
+                                     glow: glow, sung: index < current)
                         }
                     }
                     .frame(width: size.width, alignment: align == .center ? .center : .leading)
@@ -1166,6 +1170,9 @@ struct LyricRow: View {
     let singleLine: Bool
     let blur: Bool
     let align: TextAlignment
+    var words: [WordTiming] = []
+    var glow: Color = .white
+    var sung = false
 
     var body: some View {
         let label = Text(text)
@@ -1173,13 +1180,19 @@ struct LyricRow: View {
             .multilineTextAlignment(align)
             .fixedSize(horizontal: false, vertical: true)
         ZStack(alignment: align == .center ? .center : .leading) {
-            label.foregroundStyle(.white.opacity(current ? 0.3 : max(0.14, 0.42 - 0.07 * Double(distance))))
-            if current {
-                label
-                    .foregroundStyle(.white)
-                    .mask(fill)
-                    .shadow(color: .white.opacity(0.35), radius: size * 0.3)
-                    .animation(.linear(duration: 0.1), value: progress)
+            if current && !words.isEmpty {
+                // Palabra por palabra, al ritmo del cantante.
+                KaraokeLive(words: words, size: size, center: align == .center, glow: glow)
+                    .transition(.opacity)
+            } else {
+                label.foregroundStyle(.white.opacity(current ? 0.3 : max(0.14, (sung ? 0.36 : 0.42) - 0.07 * Double(distance))))
+                if current {
+                    label
+                        .foregroundStyle(.white)
+                        .mask(fill)
+                        .shadow(color: glow.opacity(0.35), radius: size * 0.3)
+                        .animation(.linear(duration: 0.1), value: progress)
+                }
             }
         }
         .blur(radius: blur && !current ? min(5, CGFloat(distance) * 1.25) : 0)

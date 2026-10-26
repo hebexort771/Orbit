@@ -393,6 +393,8 @@ final class Settings: ObservableObject {
     @Pref("artworkFlip") var artworkFlip = true
     @Pref("hideWhenSourceActive") var hideWhenSourceActive = false
     @Pref("lyricsEnabled") var lyricsEnabled = true
+    @Pref("lyricsOffset") var lyricsOffset = 0.0
+    @Pref("liquidNotch") var liquidNotch = true
     @Pref("trackPeek") var trackPeek = true
 
     // Calendario

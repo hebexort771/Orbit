@@ -193,6 +193,8 @@ final class IslandModel: ObservableObject {
     @Published var calibrating = false
 
     let isPreview: Bool
+    /// El agua del notch: tiene su propio ritmo de dibujo y no redibuja el resto de la isla.
+    let liquid = LiquidField()
     private var dismissTask: Task<Void, Never>?
 
     init(metrics: NotchMetrics, isPreview: Bool = false) {

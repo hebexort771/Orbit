@@ -64,6 +64,45 @@ enum Snapshot {
             write(view, to: directory.appendingPathComponent(item.name + ".png"))
         }
 
+        // Notch líquido: el cursor se acerca por debajo y el notch se estira hacia él como agua.
+        let approach: [(String, CGPoint, Bool)] = [
+            ("50-agua-lejos", CGPoint(x: 30, y: 150), false),
+            ("51-agua-cerca", CGPoint(x: 30, y: 92), false),
+            ("52-agua-gota", CGPoint(x: 36, y: 64), false),
+            ("53-agua-gota-lado", CGPoint(x: -64, y: 60), false),
+            ("54-agua-musica", CGPoint(x: 10, y: 66), true)
+        ]
+        for (name, pointer, music) in approach {
+            let model = IslandModel(metrics: .preview, isPreview: true)
+            model.liveMusic = music
+            let layout = model.currentLayout
+            let geometry = LiquidField.Geometry(height: layout.height, halfFlat: layout.width / 2 - layout.bottom, collapsed: true)
+            model.liquid.simulate(pointer: pointer, geometry: geometry, seconds: 1.6)
+            let view = ZStack(alignment: .topLeading) {
+                SnapshotFrame(model: model)
+                Image(systemName: "cursorarrow")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.white)
+                    .shadow(radius: 1)
+                    .offset(x: 360 + pointer.x - 3, y: model.metrics.topInset + pointer.y - 2)
+            }
+            .frame(width: 720, height: 270)
+            .services(services)
+            .environment(\.orbitStatic, true)
+            write(view, to: directory.appendingPathComponent(name + ".png"))
+        }
+        // Onda al soltar: la gota vuelve a entrar y el borde ondula.
+        do {
+            let model = IslandModel(metrics: .preview, isPreview: true)
+            let layout = model.currentLayout
+            let geometry = LiquidField.Geometry(height: layout.height, halfFlat: layout.width / 2 - layout.bottom, collapsed: true)
+            model.liquid.simulate(pointer: CGPoint(x: 20, y: 64), geometry: geometry, seconds: 1.4)
+            model.liquid.splash(at: 20, strength: 4)
+            model.liquid.simulate(pointer: nil, geometry: geometry, seconds: 0.2)
+            write(SnapshotFrame(model: model).services(services).environment(\.orbitStatic, true),
+                  to: directory.appendingPathComponent("55-agua-onda.png"))
+        }
+
         for (index, style) in LockStyle.allCases.enumerated() {
             let state = LockScreenState()
             state.style = style
@@ -141,6 +180,31 @@ enum Snapshot {
             .environment(\.orbitStatic, true)
             write(lock, to: directory.appendingPathComponent("26-encima-de-todo.png"), scale: 1)
         }
+
+        // Letra palabra por palabra: a mitad de una línea.
+        services.media.demoSeek(to: 74.6)
+        do {
+            let state = LockScreenState()
+            state.style = .lyrics
+            state.phase = .shown
+            let size = CGSize(width: 1710, height: 1112)
+            let lock = ZStack(alignment: .topLeading) {
+                PreviewWallpaper()
+                LockScreenView(state: state, size: size, safeTop: 32)
+            }
+            .frame(width: size.width, height: size.height)
+            .services(services)
+            .environment(\.orbitStatic, true)
+            write(lock, to: directory.appendingPathComponent("28-karaoke.png"), scale: 1)
+
+            let model = IslandModel(metrics: .preview)
+            model.page = .music
+            model.lyricsMode = true
+            model.expanded = true
+            write(SnapshotFrame(model: model).services(services).environment(\.orbitStatic, true),
+                  to: directory.appendingPathComponent("29-karaoke-isla.png"))
+        }
+        services.media.demoSeek(to: 69)
 
         // La imagen que se pone como fondo de pantalla mientras la Mac está bloqueada.
         if let wallpaper = LockWallpaper.shared.render(media: services.media, size: CGSize(width: 1710, height: 1112)) {
