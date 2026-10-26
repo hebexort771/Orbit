@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Un espacio de ventanas por encima de la pantalla de bloqueo (SkyLight, privado).
@@ -65,25 +66,28 @@ final class LockScreenState: ObservableObject {
 
     @Published var phase: Phase = .hidden
     @Published var style: LockStyle = Settings.shared.lockStyle
-    @Published var badge: LockStyle?
-    @Published var hint = false
-    private var badgeTask: Task<Void, Never>?
+    /// Orbit dibuja el fondo de colores (vista previa, o modo "encima de todo").
+    @Published var backdrop = true
+    /// Orbit dibuja un reloj (vista previa, o modo "encima de todo"). Con el fondo de pantalla, el reloj es el de macOS.
+    @Published var ownClock = true
+    /// Deja ver tu foto y la contraseña de macOS a través del fondo (modo "encima de todo").
+    @Published var loginHole = false
+    /// Dónde están el reloj y el inicio de sesión de macOS en tu pantalla, si se encontraron.
+    @Published var bands = LockSystemBands()
 
+    /// Tocar la portada cambia de estilo al instante, sin mostrar ningún texto.
     func cycle() {
         let next = style.next
         withAnimation(.spring(response: 0.66, dampingFraction: 0.84)) { style = next }
         Settings.shared.lockStyle = next
         Haptics.tap()
-        withAnimation(.easeOut(duration: 0.25)) {
-            hint = false
-            badge = next
-        }
-        badgeTask?.cancel()
-        badgeTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 1_700_000_000)
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.45)) { self?.badge = nil }
-        }
+    }
+
+    func showAsPreview() {
+        backdrop = true
+        ownClock = true
+        loginHole = false
+        bands = LockSystemBands()
     }
 
     func syncStyle() {
@@ -106,6 +110,8 @@ final class LockScreenController {
     private var space: SkyLightSpace?
     private var triedSpace = false
     private var hideTask: Task<Void, Never>?
+    private var reportTask: Task<Void, Never>?
+    private var artworkWatch: AnyCancellable?
     private(set) var isLocked = false
     var onChange: ((Bool) -> Void)?
 
@@ -145,6 +151,17 @@ final class LockScreenController {
         islandModel.visibleWhenIdle = true
 
         if wantsMedia {
+            // Primero se intenta poner los colores de la canción como fondo de pantalla:
+            // así macOS dibuja encima su propio reloj, tu foto y la contraseña.
+            var onWallpaper = false
+            if settings.lockLayer == .wallpaper {
+                onWallpaper = LockWallpaper.shared.apply(media: services.media, to: screen)
+            }
+            state.backdrop = !onWallpaper
+            state.ownClock = !onWallpaper
+            state.loginHole = !onWallpaper
+            state.bands = LockSystemBands()
+
             let panel = screenPanel ?? makeScreenPanel(for: screen)
             panel.setFrame(screen.frame, display: true)
             (panel.contentView as? FirstClickHostingView<AnyView>)?.rootView = screenRoot(for: screen, preview: false)
@@ -152,14 +169,32 @@ final class LockScreenController {
             space.adopt(panel)
             state.syncStyle()
             state.phase = .hidden
-            if !settings.lockHintShown {
-                settings.lockHintShown = true
-                state.hint = true
-            }
             Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 80_000_000)
                 self?.state.phase = .shown
             }
+
+            // Medir dónde quedaron el reloj y el inicio de sesión de macOS y guardar un informe.
+            let mode = onWallpaper ? "fondo de pantalla (reloj de macOS)" : "encima de todo (reloj de Orbit)"
+            reportTask?.cancel()
+            reportTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                guard let self, !Task.isCancelled, self.isLocked else { return }
+                let bands = LockReport.bands(on: screen)
+                withAnimation(.spring(response: 0.7, dampingFraction: 0.86)) { self.state.bands = bands }
+                LockReport.write(screen: screen, safeTop: LockScreenController.safeTop(of: screen), mode: mode, bands: bands)
+            }
+
+            // Si cambia la canción con la Mac bloqueada, el fondo cambia también.
+            artworkWatch = onWallpaper ? services.media.$softArtwork
+                .dropFirst()
+                .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
+                .sink { [weak self] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, self.isLocked, LockWallpaper.shared.active else { return }
+                        LockWallpaper.shared.apply(media: self.services.media, to: screen)
+                    }
+                } : nil
         }
 
         if settings.lockEnabled {
@@ -178,6 +213,9 @@ final class LockScreenController {
     private func unlocked() {
         isLocked = false
         onChange?(false)
+        artworkWatch = nil
+        reportTask?.cancel()
+        LockWallpaper.shared.restore()
         hideTask?.cancel()
         if screenPanel?.isVisible == true { state.phase = .leaving }
         if islandPanel?.isVisible == true && Settings.shared.lockEnabled {
@@ -243,6 +281,7 @@ final class LockScreenController {
         panel.orderFrontRegardless()
         previewPanel = panel
         state.syncStyle()
+        state.showAsPreview()
         state.phase = .hidden
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 60_000_000)
@@ -291,7 +330,8 @@ struct LockLayout {
     var effective: LockStyle
 
     /// - safeTop: alto del notch (o de la barra de menús) de esa pantalla.
-    init(style: LockStyle, size: CGSize, safeTop: CGFloat, hasLyrics: Bool, clock: Bool, settings: Settings) {
+    init(style: LockStyle, size: CGSize, safeTop: CGFloat, hasLyrics: Bool, clock: Bool, settings: Settings,
+         bands: LockSystemBands = LockSystemBands()) {
         let W = size.width, H = size.height
         // Reloj: arriba, debajo del notch, del tamaño que corresponde a la pantalla.
         clockDate = max(15, min(24, H * 0.021))
@@ -300,8 +340,10 @@ struct LockLayout {
         let clockHeight = clockDate * 1.25 + clockTime * 1.05
         clockY = clockTop + clockHeight / 2
         // Zona para el contenido: entre el reloj y la foto de usuario/contraseña de macOS.
-        let top = clock ? clockTop + clockHeight + H * 0.045 : safeTop + H * 0.1
-        let floor = H * 0.725
+        var top = clock ? clockTop + clockHeight + H * 0.045 : safeTop + H * 0.1
+        var floor = H * 0.725
+        if let bottom = bands.clockBottom { top = max(top, bottom + H * 0.035) }
+        if let login = bands.loginTop { floor = min(floor, login - H * 0.03) }
         let room = max(240, floor - top)
         var style = style
         if !hasLyrics && (style == .lyrics || style == .karaoke) { style = .cover }
@@ -315,9 +357,9 @@ struct LockLayout {
 
         switch style {
         case .lyrics:
-            let cardH: CGFloat = 132
-            let side = max(150, min(W * 0.22, room - cardH - 18))
-            let groupH = side + 18 + cardH
+            let cardH: CGFloat = 138
+            let side = max(150, min(W * 0.24, room - cardH - 20))
+            let groupH = side + 20 + cardH
             let y0 = top + max(0, (room - groupH) / 2)
             // Portada + espacio + letra forman un solo bloque centrado en la pantalla.
             let gap = W * 0.06
@@ -325,7 +367,7 @@ struct LockLayout {
             let x0 = (W - (side + gap + lyricsW)) / 2
             art = CGRect(x: x0, y: y0, width: side, height: side)
             artRadius = side * 0.07
-            card = CGRect(x: art.minX, y: art.maxY + 18, width: side, height: cardH)
+            card = CGRect(x: art.minX, y: art.maxY + 20, width: side, height: cardH)
             cardKind = .under
             cardRadius = 22
             // La letra ocupa la misma altura que portada + controles; la línea que suena queda a la altura de la portada.
@@ -393,14 +435,16 @@ struct LockScreenView: View {
         let leaving = state.phase == .leaving
         let hasLyrics = settings.lockScreenLyrics && settings.lyricsEnabled && !media.lyrics.isEmpty
         let layout = LockLayout(style: state.style, size: size, safeTop: safeTop, hasLyrics: hasLyrics,
-                                clock: settings.lockClock, settings: settings)
+                                clock: true, settings: settings, bands: state.bands)
 
         ZStack(alignment: .topLeading) {
-            LockBackdrop(size: size)
-                .opacity(shown ? 1 : 0)
-                .animation(.easeInOut(duration: leaving ? 0.75 : 1.0), value: state.phase)
+            if state.backdrop {
+                LockBackdrop(size: size, loginHole: state.loginHole ? loginCenter : nil)
+                    .opacity(shown ? 1 : 0)
+                    .animation(.easeInOut(duration: leaving ? 0.75 : 1.0), value: state.phase)
+            }
 
-            if settings.lockClock {
+            if state.ownClock {
                 LockClock(dateSize: layout.clockDate, timeSize: layout.clockTime)
                     .frame(width: size.width)
                     .position(x: size.width / 2, y: layout.clockY)
@@ -434,8 +478,6 @@ struct LockScreenView: View {
                     .animation(leaving ? .spring(response: 0.75, dampingFraction: 0.86) : morph.delay(shown ? 0.12 : 0),
                                value: state.phase)
             }
-
-            badge(layout)
 
             if preview && state.phase == .shown {
                 Text(tr("Pulsa Esc para salir de la vista previa", "Press Esc to exit the preview"))
@@ -478,28 +520,10 @@ struct LockScreenView: View {
         return CGRect(x: size.width / 2 - side / 2, y: (safeTop - side) / 2, width: side, height: side)
     }
 
-    @ViewBuilder
-    private func badge(_ layout: LockLayout) -> some View {
-        if let style = state.badge {
-            Label(style.title, systemImage: LockStylePicture.symbol(style))
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 9)
-                .background(Capsule().fill(Color.black.opacity(0.45)))
-                .background(Capsule().fill(Color.white.opacity(0.1)))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.2)))
-                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
-                .position(x: layout.art.midX, y: layout.art.midY)
-                .transition(.modifier(active: BlurFade(progress: 0, lift: 10), identity: BlurFade(progress: 1, lift: 10)))
-                .id(style)
-        } else if state.hint && state.phase == .shown {
-            Label(tr("Toca la portada para cambiar el estilo", "Click the artwork to change the style"), systemImage: "hand.tap")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
-                .position(x: size.width / 2, y: layout.badgeY)
-                .transition(.opacity)
-        }
+    /// Dónde está tu foto de usuario en la pantalla bloqueada de macOS.
+    private var loginCenter: CGPoint {
+        let y = state.bands.loginTop.map { $0 + size.height * 0.09 } ?? size.height * 0.86
+        return CGPoint(x: size.width / 2, y: y)
     }
 }
 
@@ -527,6 +551,8 @@ struct Reveal: ViewModifier {
 
 struct LockBackdrop: View {
     let size: CGSize
+    /// Centro del inicio de sesión de macOS que debe verse a través del fondo (nil = pantalla completa).
+    var loginHole: CGPoint? = nil
     @EnvironmentObject private var media: NowPlayingService
     @ObservedObject private var settings = Settings.shared
     @Environment(\.orbitStatic) private var isStatic
@@ -557,11 +583,26 @@ struct LockBackdrop: View {
         }
         .frame(width: size.width, height: size.height)
         .clipped()
-        // Abajo se desvanece para dejar ver tu foto y el campo de contraseña.
-        .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.75),
-                                     .init(color: .black.opacity(0.55), location: 0.85), .init(color: .clear, location: 0.98)],
-                             startPoint: .top, endPoint: .bottom))
+        .mask(holeMask)
         .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private var holeMask: some View {
+        if let center = loginHole {
+            ZStack {
+                Color.black
+                Ellipse()
+                    .fill(RadialGradient(colors: [.black, .black.opacity(0.85), .black.opacity(0)], center: .center,
+                                         startRadius: 0, endRadius: size.width * 0.17))
+                    .frame(width: size.width * 0.34, height: size.height * 0.36)
+                    .position(center)
+                    .blendMode(.destinationOut)
+            }
+            .compositingGroup()
+        } else {
+            Color.black
+        }
     }
 
     private var diagonal: CGFloat { (size.width * size.width + size.height * size.height).squareRoot() }
@@ -656,26 +697,18 @@ struct LockClock: View {
 
     var body: some View {
         TimelineView(.everyMinute) { timeline in
-            VStack(spacing: dateSize * 0.2) {
+            // Como el de macOS: medio transparente, deja ver los colores de atrás.
+            VStack(spacing: dateSize * 0.15) {
                 Text(dateText(timeline.date))
                     .font(.system(size: dateSize, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.82))
+                    .foregroundStyle(.white.opacity(0.72))
                 Text(LockClock.time(timeline.date))
-                    .font(timeFont)
+                    .font(.system(size: timeSize, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundStyle(LinearGradient(colors: [.white.opacity(0.96), .white.opacity(0.72)],
-                                                    startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(.white.opacity(0.62))
                     .contentTransition(.numericText())
-                    .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
             }
-        }
-    }
-
-    private var timeFont: Font {
-        switch settings.lockClockStyle {
-        case .rounded: return .system(size: timeSize, weight: .bold, design: .rounded)
-        case .classic: return .system(size: timeSize, weight: .semibold, design: .default)
-        case .light: return .system(size: timeSize, weight: .thin, design: .default)
+            .blendMode(.plusLighter)
         }
     }
 
@@ -751,7 +784,6 @@ struct LockArtwork: View {
         .frame(width: rect.width, height: rect.height)
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .onTapGesture { onTap() }
-        .help(tr("Toca para cambiar el estilo", "Click to change the style"))
         .position(x: rect.midX, y: rect.midY)
     }
 
@@ -793,14 +825,9 @@ struct LockCard: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(Color.white.opacity(kind == .full ? 0.1 : 0.085))
-                .background(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .fill(Color.black.opacity(kind == .full ? 0.35 : 0.12))
-                )
-                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+            if kind != .under {
+                card
+            }
             content
                 .id(kind)
                 .transition(.opacity.animation(.easeInOut(duration: 0.25)))
@@ -808,20 +835,31 @@ struct LockCard: View {
         .foregroundStyle(.white)
     }
 
+    private var card: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(Color.white.opacity(kind == .full ? 0.1 : 0.085))
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(Color.black.opacity(kind == .full ? 0.35 : 0.12))
+            )
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
+            .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
+    }
+
     @ViewBuilder
     private var content: some View {
         switch kind {
         case .under:
-            VStack(spacing: 9) {
-                VStack(spacing: 2) {
-                    Text(track.title).font(.system(size: 15, weight: .bold)).lineLimit(1)
-                    Text(track.artist).font(.system(size: 13, weight: .medium)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                    Text(track.artist).font(.system(size: 14, weight: .regular)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
                 }
-                MediaProgress(accent: .white)
-                MediaControls(accent: media.accent)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                LockProgress()
+                LockControlsRow()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .frame(maxHeight: .infinity, alignment: .top)
         case .cover:
             VStack(spacing: 10) {
                 VStack(spacing: 3) {
@@ -876,6 +914,96 @@ struct LockCard: View {
             }
             .padding(22)
         }
+    }
+}
+
+/// Barra de progreso de Apple Music: fina, con los tiempos debajo en las dos puntas.
+struct LockProgress: View {
+    @EnvironmentObject private var media: NowPlayingService
+    @State private var dragFraction: Double?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.5)) { timeline in
+            let duration = media.track?.duration ?? 0
+            let live = media.elapsed(at: timeline.date)
+            let elapsed = dragFraction.map { $0 * duration } ?? live
+            let fraction = duration > 0 ? min(1, max(0, elapsed / duration)) : 0
+            VStack(spacing: 5) {
+                GeometryReader { geo in
+                    let height: CGFloat = dragFraction == nil ? 5 : 8
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color.white.opacity(0.2))
+                        Capsule().fill(Color.white.opacity(0.75))
+                            .frame(width: max(height, geo.size.width * CGFloat(fraction)))
+                            .animation(dragFraction == nil ? .linear(duration: 0.5) : nil, value: fraction)
+                    }
+                    .frame(height: height)
+                    .frame(maxHeight: .infinity)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: dragFraction == nil)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                dragFraction = min(1, max(0, Double(value.location.x / max(1, geo.size.width))))
+                            }
+                            .onEnded { value in
+                                media.seek(to: min(1, max(0, Double(value.location.x / max(1, geo.size.width)))) * duration)
+                                dragFraction = nil
+                            }
+                    )
+                }
+                .frame(height: 10)
+                HStack {
+                    Text(TimeText.clock(elapsed))
+                    Spacer()
+                    Text("−" + TimeText.clock(max(0, duration - elapsed)))
+                }
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+    }
+}
+
+/// Aleatorio a la izquierda, anterior/reproducir/siguiente al centro y repetir a la derecha.
+struct LockControlsRow: View {
+    @EnvironmentObject private var media: NowPlayingService
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button { media.toggleShuffle() } label: {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(media.shuffleOn ? Color.white : Color.white.opacity(0.55))
+            }
+            .buttonStyle(OrbitButtonStyle(size: 34))
+            Spacer(minLength: 4)
+            HStack(spacing: 14) {
+                Button { media.previous() } label: {
+                    Image(systemName: "backward.fill").font(.system(size: 22, weight: .semibold))
+                }
+                .buttonStyle(OrbitButtonStyle(size: 44))
+                Button { media.togglePlay() } label: {
+                    Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 30, weight: .semibold))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(OrbitButtonStyle(size: 52))
+                Button { media.next() } label: {
+                    Image(systemName: "forward.fill").font(.system(size: 22, weight: .semibold))
+                }
+                .buttonStyle(OrbitButtonStyle(size: 44))
+            }
+            Spacer(minLength: 4)
+            Button { media.cycleRepeat() } label: {
+                Image(systemName: media.repeatMode == 2 ? "repeat.1" : "repeat")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(media.repeatMode != 1 ? Color.white : Color.white.opacity(0.55))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(OrbitButtonStyle(size: 34))
+        }
+        .foregroundStyle(.white)
     }
 }
 

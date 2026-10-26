@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Snapshot.run(into: folder, delegate: self)
             return
         }
+        // Si Orbit se cerró con la Mac bloqueada, devuelve tu fondo de pantalla.
+        LockWallpaper.shared.restoreLeftovers()
         start(demo: arguments.contains("--demo"))
         if arguments.contains("--settings") { openSettings() }
     }
@@ -54,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        LockWallpaper.shared.restore()
         services?.media.stop()
         services?.keys.stop()
     }

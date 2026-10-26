@@ -124,6 +124,32 @@ enum Snapshot {
         }
         services.media.demoSeek(to: 69)
 
+        // Modo "encima de todo": fondo completo con un hueco suave donde está tu foto y la contraseña.
+        do {
+            let state = LockScreenState()
+            state.style = .lyrics
+            state.phase = .shown
+            state.loginHole = true
+            let size = CGSize(width: 1710, height: 1112)
+            let lock = ZStack(alignment: .topLeading) {
+                PreviewWallpaper()
+                LockScreenView(state: state, size: size, safeTop: 32)
+                LoginMock(size: size, safeTop: 32, notchWidth: 185)
+            }
+            .frame(width: size.width, height: size.height)
+            .services(services)
+            .environment(\.orbitStatic, true)
+            write(lock, to: directory.appendingPathComponent("26-encima-de-todo.png"), scale: 1)
+        }
+
+        // La imagen que se pone como fondo de pantalla mientras la Mac está bloqueada.
+        if let wallpaper = LockWallpaper.shared.render(media: services.media, size: CGSize(width: 1710, height: 1112), scale: 1) {
+            let rep = NSBitmapImageRep(cgImage: wallpaper)
+            if let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) {
+                try? data.write(to: directory.appendingPathComponent("27-fondo-de-pantalla.jpg"))
+            }
+        }
+
         let thumbs = HStack(spacing: 14) {
             ForEach(LockStyle.allCases) { style in
                 LockStyleThumb(style: style, accent: services.media.accent)

@@ -225,6 +225,32 @@ enum LockBackground: String, CaseIterable, PrefValue, Identifiable {
     }
 }
 
+/// Dónde se dibuja el fondo de la música en la pantalla bloqueada.
+enum LockLayer: String, CaseIterable, PrefValue, Identifiable {
+    /// Los colores de la canción pasan a ser el fondo de pantalla mientras está bloqueada:
+    /// el reloj, tu foto y la contraseña de macOS quedan encima.
+    case wallpaper
+    /// Orbit se dibuja encima de todo y pone su propio reloj, parecido al de macOS.
+    case above
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .wallpaper: return tr("Con el reloj de tu Mac", "With your Mac's clock")
+        case .above: return tr("Encima de todo", "Above everything")
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .wallpaper:
+            return tr("Mientras está bloqueada, los colores de la canción se ponen como fondo de pantalla y el reloj, tu foto y la contraseña de macOS quedan encima. Al desbloquear vuelve tu fondo de siempre.",
+                      "While locked, the song colors become your wallpaper and macOS draws its own clock, photo and password on top. Your usual wallpaper comes back when you unlock.")
+        case .above:
+            return tr("Orbit tapa la pantalla bloqueada y dibuja un reloj parecido al de macOS. Úsalo si la otra opción no funciona en tu Mac.",
+                      "Orbit covers the lock screen and draws a clock similar to macOS. Use it if the other option doesn't work on your Mac.")
+        }
+    }
+}
+
 enum ClockStyle: String, CaseIterable, PrefValue, Identifiable {
     case rounded, classic, light
     var id: String { rawValue }
@@ -348,6 +374,7 @@ final class Settings: ObservableObject {
     @Pref("lockScreenMedia") var lockScreenMedia = true
     @Pref("lockScreenLyrics") var lockScreenLyrics = true
     @Pref("lockStyle") var lockStyle: LockStyle = .lyrics
+    @Pref("lockLayer") var lockLayer: LockLayer = .wallpaper
     @Pref("lockBackground") var lockBackground: LockBackground = .aurora
     @Pref("lockMotion") var lockMotion = true
     @Pref("lockClock") var lockClock = true

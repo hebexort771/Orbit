@@ -432,6 +432,17 @@ struct LockScreenSettings: View {
             }
         }
 
+        Section(tr("Pantalla completa y reloj", "Full screen and clock")) {
+            Picker(tr("Cómo se muestra", "How it's shown"), selection: $settings.lockLayer) {
+                ForEach(LockLayer.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text(settings.lockLayer.subtitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+
         Section(tr("Estilo", "Style")) {
             StyleCards(LockStyle.allCases,
                        selection: Binding(get: { settings.lockStyle },
@@ -462,17 +473,6 @@ struct LockScreenSettings: View {
             .disabled(settings.lockBackground != .aurora)
         }
 
-        Section(tr("Reloj", "Clock")) {
-            Toggle(isOn: $settings.lockClock) {
-                Text(tr("Reloj de Orbit", "Orbit clock"))
-                Text(tr("Si ves dos relojes en tu pantalla bloqueada, desactívalo", "If you see two clocks on your lock screen, turn this off"))
-            }
-            Picker(tr("Tipo de letra", "Typeface"), selection: $settings.lockClockStyle) {
-                ForEach(ClockStyle.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .disabled(!settings.lockClock)
-        }
 
         Section(tr("Letra", "Lyrics")) {
             Toggle(tr("Mostrar la letra", "Show lyrics"), isOn: $settings.lockScreenLyrics)
@@ -495,6 +495,8 @@ struct LockScreenSettings: View {
             }
             Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
         }
+
+        LockReportSection()
     }
 }
 
@@ -730,6 +732,31 @@ struct AboutSettings: View {
             releaseURL = (json["html_url"] as? String).flatMap(URL.init(string:))
         } else {
             update = tr("Tienes la última versión", "You’re up to date")
+        }
+    }
+}
+
+/// Copia el informe de la última vez que se bloqueó la Mac, para ajustar Orbit a tu pantalla.
+struct LockReportSection: View {
+    @State private var copied = false
+
+    var body: some View {
+        Section(tr("Si algo no se ve bien", "If something looks wrong")) {
+            HStack {
+                Text(tr("Informe de la última vez que bloqueaste la Mac", "Report from the last time you locked your Mac"))
+                Spacer()
+                Button(copied ? tr("Copiado", "Copied") : tr("Copiar informe", "Copy report")) {
+                    guard let text = LockReport.text else { return }
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(text, forType: .string)
+                    withAnimation { copied = true }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        withAnimation { copied = false }
+                    }
+                }
+                .disabled(LockReport.text == nil)
+            }
         }
     }
 }
