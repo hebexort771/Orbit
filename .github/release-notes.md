@@ -1,4 +1,15 @@
-### Orbit 1.3.0 — letra al ritmo del cantante y notch líquido
+### Orbit 1.3.1 — letra como Apple Music y portadas nítidas
+
+**Letra**
+- Cada línea se enciende justo en el momento en que se canta, como en Apple Music. Antes cambiaba casi medio segundo antes de tiempo.
+- Ya no se ilumina palabra por palabra con tiempos inventados, que se adelantaban o atrasaban al cantante. Si la letra trae el tiempo real de cada palabra, se ilumina palabra por palabra.
+- Si aun así quieres el cálculo aproximado: **Ajustes → Reproduciendo → Calcular palabra por palabra**.
+
+**Portadas en alta calidad**
+- Si la app de música entrega una portada pequeña, Orbit busca la original en el catálogo de Apple, hasta 1200 px, y la cambia sin que se note. Solo la usa si es exactamente la misma imagen.
+- La portada de la pantalla bloqueada ya no pasa por una transformación 3D cuando la inclinación está apagada, así se dibuja a resolución completa.
+
+### Novedades de 1.3.0 — notch líquido
 
 **Letra palabra por palabra**
 - La línea que suena se ilumina palabra por palabra mientras el cantante la canta, con Apple Music, Spotify, YouTube Music o cualquier app que se vea en el notch.
