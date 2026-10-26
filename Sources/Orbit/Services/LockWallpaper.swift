@@ -1,9 +1,15 @@
 import AppKit
+import ImageIO
+import QuartzCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Mientras la Mac está bloqueada, pone los colores de la canción como fondo de pantalla.
 /// Así es macOS quien dibuja encima su propio reloj, tu foto y la contraseña.
-/// Al desbloquear deja tu fondo exactamente como estaba.
+/// Al desbloquear, tu fondo de siempre vuelve con un fundido suave.
+///
+/// Para que bloquear y desbloquear vayan fluidos, la imagen se prepara antes, en segundo plano,
+/// cada vez que cambia la canción: en el momento de bloquear solo se cambia el fondo.
 @MainActor
 final class LockWallpaper {
     static let shared = LockWallpaper()
@@ -13,12 +19,23 @@ final class LockWallpaper {
         let url: String
         let scaling: Int?
         let clipping: Bool?
-        var ours: String
     }
 
-    private let key = "lockWallpaperBackup"
+    struct Prepared {
+        let key: String
+        let url: URL
+        let image: CGImage
+    }
+
+    private let defaultsKey = "lockWallpaperBackup"
     private let imageTypes: Set<String> = ["jpg", "jpeg", "png", "heic", "heif", "tif", "tiff", "gif", "bmp", "webp"]
+    private let queue = DispatchQueue(label: "orbit.lock-wallpaper", qos: .userInitiated)
     private(set) var active = false
+    private(set) var prepared: Prepared?
+    private var shown: Prepared?
+    private var pendingKey: String?
+    private var applyWhenReady: NSScreen?
+    private let dissolve = WallpaperDissolve()
     /// Qué pasó la última vez (para el informe).
     private(set) var note = "sin usar"
     private(set) var originalType = "-"
@@ -28,91 +45,130 @@ final class LockWallpaper {
         return base.appendingPathComponent("Orbit/Fondo", isDirectory: true)
     }
 
-    /// Dibuja el fondo de la canción y lo pone en esa pantalla. Si algo falla, no cambia nada y devuelve false.
-    @discardableResult
-    func apply(media: NowPlayingService, to screen: NSScreen) -> Bool {
-        guard let image = render(media: media, size: screen.frame.size, scale: screen.backingScaleFactor) else {
-            note = "no se pudo dibujar el fondo"
-            return false
-        }
-        return apply(image, to: screen)
+    // MARK: Preparar antes de bloquear
+
+    private func key(media: NowPlayingService, size: CGSize) -> String {
+        let soft = media.softArtwork.map { String(UInt(bitPattern: ObjectIdentifier($0).hashValue)) } ?? "-"
+        return "\(media.artworkSerial)-\(soft)-\(media.palette.count)-\(Int(size.width))x\(Int(size.height))-\(Settings.shared.lockBackground.rawValue)"
     }
 
-    func apply(_ image: CGImage, to screen: NSScreen) -> Bool {
-        let workspace = NSWorkspace.shared
-        guard let displayID = screen.displayID else { note = "pantalla sin identificador"; return false }
-
-        // Se guarda tu fondo original solo una vez: si cambia la canción, se sigue restaurando el tuyo.
-        var backup = stored()
-        if backup == nil {
-            guard let current = workspace.desktopImageURL(for: screen) else {
-                note = "no se pudo leer tu fondo de pantalla"
-                return false
+    /// Dibuja la imagen en segundo plano (sin tocar la animación de nada) y la deja lista.
+    func prepare(media: NowPlayingService, screen: NSScreen) {
+        let size = screen.frame.size
+        let key = key(media: media, size: size)
+        guard prepared?.key != key, pendingKey != key else { return }
+        pendingKey = key
+        let input = WallpaperArt.Input(media: media, size: size, style: Settings.shared.lockBackground)
+        let folder = folder
+        queue.async {
+            guard let image = WallpaperArt.render(input) else { return }
+            let url = folder.appendingPathComponent("orbit-\(Int(Date().timeIntervalSince1970 * 1000)).png")
+            guard WallpaperArt.writePNG(image, to: url, folder: folder) else { return }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    let ready = Prepared(key: key, url: url, image: image)
+                    self.prepared = ready
+                    if self.pendingKey == key { self.pendingKey = nil }
+                    self.cleanup()
+                    if let screen = self.applyWhenReady {
+                        self.applyWhenReady = nil
+                        self.set(ready, on: screen)
+                    }
+                }
             }
-            originalType = current.isFileURL ? "." + current.pathExtension.lowercased() : current.scheme ?? "?"
-            guard current.isFileURL, imageTypes.contains(current.pathExtension.lowercased()),
-                  FileManager.default.fileExists(atPath: current.path) else {
-                note = "tu fondo actual es de un tipo que no se puede restaurar con seguridad (\(originalType))"
-                return false
-            }
-            let options = workspace.desktopImageOptions(for: screen) ?? [:]
-            backup = Backup(displayID: displayID, url: current.absoluteString,
-                            scaling: (options[.imageScaling] as? NSNumber)?.intValue,
-                            clipping: (options[.allowClipping] as? NSNumber)?.boolValue,
-                            ours: "")
         }
-        guard var backup else { return false }
+    }
 
+    // MARK: Al bloquear
+
+    /// Comprueba que tu fondo se pueda restaurar, lo guarda y pone el de la canción.
+    /// Devuelve false si no conviene tocar tu fondo (entonces Orbit se dibuja encima de todo).
+    @discardableResult
+    func apply(media: NowPlayingService, to screen: NSScreen) -> Bool {
+        guard begin(screen: screen) else { return false }
+        let wanted = key(media: media, size: screen.frame.size)
+        if let ready = prepared, ready.key == wanted {
+            set(ready, on: screen)
+        } else {
+            // Aún no estaba lista: se dibuja ahora en segundo plano y se pone apenas termine.
+            applyWhenReady = screen
+            prepare(media: media, screen: screen)
+        }
+        active = true
+        return true
+    }
+
+    private func begin(screen: NSScreen) -> Bool {
+        guard stored() == nil else { return true }
+        let workspace = NSWorkspace.shared
+        guard let displayID = screen.displayID, let current = workspace.desktopImageURL(for: screen) else {
+            note = "no se pudo leer tu fondo de pantalla"
+            return false
+        }
+        originalType = current.isFileURL ? "." + current.pathExtension.lowercased() : current.scheme ?? "?"
+        guard current.isFileURL, imageTypes.contains(current.pathExtension.lowercased()),
+              FileManager.default.fileExists(atPath: current.path), !current.path.hasPrefix(folder.path) else {
+            note = "tu fondo actual es de un tipo que no se puede restaurar con seguridad (\(originalType))"
+            return false
+        }
+        let options = workspace.desktopImageOptions(for: screen) ?? [:]
+        save(Backup(displayID: displayID, url: current.absoluteString,
+                    scaling: (options[.imageScaling] as? NSNumber)?.intValue,
+                    clipping: (options[.allowClipping] as? NSNumber)?.boolValue))
+        return true
+    }
+
+    private func set(_ ready: Prepared, on screen: NSScreen) {
         do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            // Un nombre distinto cada vez: macOS guarda los fondos en caché por su ruta.
-            let file = folder.appendingPathComponent("orbit-\(Int(Date().timeIntervalSince1970 * 1000)).jpg")
-            let rep = NSBitmapImageRep(cgImage: image)
-            guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) else {
-                note = "no se pudo guardar la imagen"
-                return false
-            }
-            try data.write(to: file, options: .atomic)
-            // Se guarda el respaldo antes de cambiar nada: si Orbit se cerrara, lo restaura al abrir.
-            backup.ours = file.path
-            save(backup)
-            try workspace.setDesktopImageURL(file, for: screen, options: [
+            try NSWorkspace.shared.setDesktopImageURL(ready.url, for: screen, options: [
                 .imageScaling: NSNumber(value: NSImageScaling.scaleProportionallyUpOrDown.rawValue),
                 .allowClipping: NSNumber(value: true)
             ])
-            cleanup(keeping: file)
-            active = true
+            shown = ready
             note = "fondo de la canción puesto"
-            return true
         } catch {
             note = "macOS no dejó cambiar el fondo: \(error.localizedDescription)"
-            if !active { UserDefaults.standard.removeObject(forKey: key) }
-            return false
         }
     }
 
-    /// Vuelve a poner tu fondo de siempre.
-    func restore() {
+    /// Si cambia la canción con la Mac bloqueada, el fondo cambia también.
+    func refresh(media: NowPlayingService, screen: NSScreen) {
+        guard active else { return }
+        applyWhenReady = screen
+        prepare(media: media, screen: screen)
+    }
+
+    // MARK: Al desbloquear
+
+    /// Vuelve a poner tu fondo de siempre. Con `animated`, el cambio se tapa con la imagen de la canción
+    /// (justo encima del fondo, debajo de tus ventanas) y luego se desvanece despacio.
+    func restore(animated: Bool = false) {
         active = false
+        applyWhenReady = nil
         guard let backup = stored() else { return }
         let workspace = NSWorkspace.shared
         guard let url = URL(string: backup.url),
               let screen = NSScreen.screens.first(where: { $0.displayID == backup.displayID }) ?? NSScreen.main else { return }
         // Si mientras tanto elegiste otro fondo tú mismo, no se toca.
         if let current = workspace.desktopImageURL(for: screen), !current.path.hasPrefix(folder.path) {
-            UserDefaults.standard.removeObject(forKey: key)
+            UserDefaults.standard.removeObject(forKey: defaultsKey)
             return
+        }
+        if animated, let image = shown?.image {
+            dissolve.cover(screen, with: image)
         }
         var options: [NSWorkspace.DesktopImageOptionKey: Any] = [:]
         if let scaling = backup.scaling { options[.imageScaling] = NSNumber(value: scaling) }
         if let clipping = backup.clipping { options[.allowClipping] = NSNumber(value: clipping) }
         do {
             try workspace.setDesktopImageURL(url, for: screen, options: options)
-            UserDefaults.standard.removeObject(forKey: key)
+            UserDefaults.standard.removeObject(forKey: defaultsKey)
             note += " · restaurado"
         } catch {
             note += " · no se pudo restaurar: \(error.localizedDescription)"
         }
+        shown = nil
+        if animated { dissolve.fadeOut(after: 0.55, duration: 1.1) }
     }
 
     /// Al abrir Orbit: si se cerró con la Mac bloqueada, devuelve tu fondo.
@@ -120,38 +176,208 @@ final class LockWallpaper {
         if stored() != nil { restore() }
     }
 
-    // MARK: Imagen
-
-    func render(media: NowPlayingService, size: CGSize, scale: CGFloat) -> CGImage? {
-        let view = LockBackdrop(size: size)
-            .environmentObject(media)
-            .environment(\.orbitStatic, true)
-            .frame(width: size.width, height: size.height)
-        let renderer = ImageRenderer(content: view)
-        renderer.scale = scale
-        return renderer.cgImage
+    /// La misma imagen que se usa de fondo, para las capturas de prueba.
+    func render(media: NowPlayingService, size: CGSize) -> CGImage? {
+        WallpaperArt.render(WallpaperArt.Input(media: media, size: size, style: Settings.shared.lockBackground))
     }
 
     // MARK: Respaldo
 
     private func stored() -> Backup? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey) else { return nil }
         return try? JSONDecoder().decode(Backup.self, from: data)
     }
 
     private func save(_ backup: Backup) {
-        if let data = try? JSONEncoder().encode(backup) { UserDefaults.standard.set(data, forKey: key) }
+        if let data = try? JSONEncoder().encode(backup) { UserDefaults.standard.set(data, forKey: defaultsKey) }
     }
 
-    private func cleanup(keeping file: URL) {
+    private func cleanup() {
+        let keep = Set([prepared?.url.lastPathComponent, shown?.url.lastPathComponent].compactMap { $0 })
         guard let items = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
-        for item in items where item.lastPathComponent != file.lastPathComponent {
+        for item in items where !keep.contains(item.lastPathComponent) {
             try? FileManager.default.removeItem(at: item)
         }
     }
 }
 
-/// Informe de lo que hay en la pantalla bloqueada, para poder ajustar Orbit a tu Mac.
+/// Una ventana justo encima del fondo de pantalla (debajo de tus ventanas e iconos) que muestra
+/// la imagen de la canción y se desvanece con Core Animation: el cambio de fondo se ve como un fundido.
+@MainActor
+final class WallpaperDissolve {
+    private var window: NSWindow?
+    private var layer: CALayer?
+
+    func cover(_ screen: NSScreen, with image: CGImage) {
+        window?.orderOut(nil)
+        let window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) - 1)
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        window.ignoresMouseEvents = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = false
+        window.isReleasedWhenClosed = false
+        window.animationBehavior = .none
+        let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
+        view.wantsLayer = true
+        let layer = CALayer()
+        layer.frame = view.bounds
+        layer.contents = image
+        layer.contentsGravity = .resizeAspectFill
+        layer.masksToBounds = true
+        view.layer?.addSublayer(layer)
+        window.contentView = view
+        window.setFrame(screen.frame, display: false)
+        window.orderFrontRegardless()
+        self.window = window
+        self.layer = layer
+    }
+
+    func fadeOut(after delay: Double, duration: Double) {
+        guard let window, let layer else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            let curve = CAMediaTimingFunction(controlPoints: 0.45, 0, 0.2, 1)
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            let zoom = CABasicAnimation(keyPath: "transform.scale")
+            zoom.fromValue = 1
+            zoom.toValue = 1.08
+            let group = CAAnimationGroup()
+            group.animations = [fade, zoom]
+            group.duration = duration
+            group.timingFunction = curve
+            CATransaction.begin()
+            CATransaction.setCompletionBlock {
+                MainActor.assumeIsolated {
+                    window.orderOut(nil)
+                    if self?.window === window {
+                        self?.window = nil
+                        self?.layer = nil
+                    }
+                }
+            }
+            layer.opacity = 0
+            layer.add(group, forKey: "dissolve")
+            CATransaction.commit()
+        }
+    }
+}
+
+/// Dibuja el fondo de colores de la canción con Core Graphics, fuera del hilo principal.
+/// Es el mismo dibujo que el fondo animado de Orbit, congelado en un instante.
+enum WallpaperArt {
+    struct Input {
+        let soft: CGImage?
+        let colors: [CGColor]
+        let size: CGSize
+        let style: LockBackground
+
+        @MainActor
+        init(media: NowPlayingService, size: CGSize, style: LockBackground) {
+            soft = media.softArtwork?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            let fallback = [NSColor(red: 0.24, green: 0.12, blue: 0.42, alpha: 1), NSColor(red: 0.5, green: 0.12, blue: 0.36, alpha: 1),
+                            NSColor(red: 0.1, green: 0.16, blue: 0.4, alpha: 1)]
+            var list = media.palette.isEmpty ? fallback : media.palette.map { NSColor($0) }
+            while list.count < 3 { list.append(list[list.count - 1]) }
+            colors = list.map { ($0.usingColorSpace(.sRGB) ?? $0).cgColor }
+            self.size = size
+            self.style = style
+        }
+    }
+
+    static func render(_ input: Input) -> CGImage? {
+        let W = max(1, input.size.width), H = max(1, input.size.height)
+        guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: Int(W), height: Int(H), bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue) else { return nil }
+        ctx.interpolationQuality = .high
+        let rect = CGRect(x: 0, y: 0, width: W, height: H)
+        let c = input.colors
+        switch input.style {
+        case .aurora:
+            ctx.setFillColor(c[0]); ctx.fill(rect)
+            if let soft = input.soft {
+                let diagonal = (W * W + H * H).squareRoot() * 1.3
+                layer(ctx, soft, side: diagonal, center: CGPoint(x: W / 2, y: H / 2), degrees: 14 * 3.5, mirror: false,
+                      alpha: 0.72, blend: .normal, space: space)
+                layer(ctx, soft, side: diagonal, center: CGPoint(x: W / 2, y: H / 2), degrees: 90 - 14 * 5, mirror: true,
+                      alpha: 0.34, blend: .screen, space: space)
+            }
+            let speeds: [(Double, Double, Double)] = [(0.11, 0.07, 0), (0.08, 0.13, 2.1), (0.14, 0.09, 4.2)]
+            let t = 14.0
+            for index in 0..<3 {
+                let s = speeds[index]
+                let r = max(W, H) * (0.42 + 0.06 * CGFloat(index))
+                let x = W * (0.5 + 0.34 * cos(t * s.0 + s.2))
+                let y = H - H * (0.5 + 0.3 * sin(t * s.1 + s.2 * 1.3))
+                radial(ctx, color: c[index], alpha: 0.9 * 0.4, center: CGPoint(x: x, y: y), radius: r, blend: .plusLighter, space: space)
+            }
+            ctx.setBlendMode(.normal)
+            ctx.setFillColor(CGColor(gray: 0, alpha: 0.4)); ctx.fill(rect)
+        case .blurred:
+            ctx.setFillColor(c[0]); ctx.fill(rect)
+            if let soft = input.soft {
+                let scale = max(W / CGFloat(soft.width), H / CGFloat(soft.height))
+                let w = CGFloat(soft.width) * scale, h = CGFloat(soft.height) * scale
+                ctx.draw(soft, in: CGRect(x: (W - w) / 2, y: (H - h) / 2, width: w, height: h))
+            }
+            ctx.setFillColor(CGColor(gray: 0, alpha: 0.38)); ctx.fill(rect)
+        case .dark:
+            ctx.setFillColor(CGColor(srgbRed: 0.02, green: 0.02, blue: 0.03, alpha: 1)); ctx.fill(rect)
+            radial(ctx, color: c[0], alpha: 0.55, center: CGPoint(x: W * 0.3, y: H * 0.5), radius: W * 0.45, blend: .normal, space: space)
+        }
+        // Viñeta para que el reloj y la letra siempre se lean.
+        if let vignette = CGGradient(colorsSpace: space, colors: [CGColor(gray: 0, alpha: 0), CGColor(gray: 0, alpha: 0.45)] as CFArray,
+                                     locations: [0, 1]) {
+            ctx.setBlendMode(.normal)
+            ctx.drawRadialGradient(vignette, startCenter: CGPoint(x: W / 2, y: H / 2), startRadius: min(W, H) * 0.3,
+                                   endCenter: CGPoint(x: W / 2, y: H / 2), endRadius: max(W, H) * 0.8,
+                                   options: [.drawsAfterEndLocation])
+        }
+        return ctx.makeImage()
+    }
+
+    /// Una capa de la portada difuminada, girada y con el borde desvanecido (nunca se ve una esquina).
+    private static func layer(_ ctx: CGContext, _ image: CGImage, side: CGFloat, center: CGPoint, degrees: Double,
+                              mirror: Bool, alpha: CGFloat, blend: CGBlendMode, space: CGColorSpace) {
+        ctx.saveGState()
+        ctx.setBlendMode(blend)
+        ctx.setAlpha(alpha)
+        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+        ctx.translateBy(x: center.x, y: center.y)
+        ctx.rotate(by: -CGFloat(degrees) * .pi / 180)
+        if mirror { ctx.scaleBy(x: -1, y: 1) }
+        let box = CGRect(x: -side / 2, y: -side / 2, width: side, height: side)
+        ctx.draw(image, in: box)
+        if let edge = CGGradient(colorsSpace: space, colors: [CGColor(gray: 0, alpha: 1), CGColor(gray: 0, alpha: 1), CGColor(gray: 0, alpha: 0)] as CFArray,
+                                 locations: [0, 0.62, 1]) {
+            ctx.setBlendMode(.destinationIn)
+            ctx.drawRadialGradient(edge, startCenter: .zero, startRadius: 0, endCenter: .zero, endRadius: side / 2, options: [])
+        }
+        ctx.endTransparencyLayer()
+        ctx.restoreGState()
+    }
+
+    private static func radial(_ ctx: CGContext, color: CGColor, alpha: CGFloat, center: CGPoint, radius: CGFloat,
+                               blend: CGBlendMode, space: CGColorSpace) {
+        guard let solid = color.copy(alpha: alpha), let clear = color.copy(alpha: 0),
+              let gradient = CGGradient(colorsSpace: space, colors: [solid, clear] as CFArray, locations: [0, 1]) else { return }
+        ctx.saveGState()
+        ctx.setBlendMode(blend)
+        ctx.drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
+        ctx.restoreGState()
+    }
+
+    static func writePNG(_ image: CGImage, to url: URL, folder: URL) -> Bool {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return false }
+        CGImageDestinationAddImage(destination, image, nil)
+        return CGImageDestinationFinalize(destination)
+    }
+}
+
 /// Dónde terminan el reloj del sistema (arriba) y empieza el inicio de sesión (abajo), si se encuentran.
 struct LockSystemBands: Equatable {
     var clockBottom: CGFloat?

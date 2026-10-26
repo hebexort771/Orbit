@@ -112,6 +112,8 @@ final class LockScreenController {
     private var hideTask: Task<Void, Never>?
     private var reportTask: Task<Void, Never>?
     private var artworkWatch: AnyCancellable?
+    private var prepareWatch: AnyCancellable?
+    private var settingsWatch: AnyCancellable?
     private(set) var isLocked = false
     var onChange: ((Bool) -> Void)?
 
@@ -120,12 +122,27 @@ final class LockScreenController {
         let screen = IslandController.preferredScreen()
         islandModel = IslandModel(metrics: NotchMetrics.measure(screen, style: Settings.shared.virtualStyle))
         let center = DistributedNotificationCenter.default()
+        // El fondo de la canción se prepara en segundo plano cada vez que cambia la canción,
+        // para que al bloquear no haya que dibujar nada y todo vaya fluido.
+        prepareWatch = services.media.$softArtwork.combineLatest(services.media.$palette)
+            .debounce(for: .milliseconds(700), scheduler: RunLoop.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.prepareWallpaper() } }
+        settingsWatch = Settings.shared.objectWillChange
+            .debounce(for: .milliseconds(700), scheduler: RunLoop.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.prepareWallpaper() } }
         center.addObserver(forName: NSNotification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.locked() }
         }
         center.addObserver(forName: NSNotification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.unlocked() }
         }
+    }
+
+    private func prepareWallpaper() {
+        let settings = Settings.shared
+        guard !isLocked, settings.lockScreenMedia, settings.musicEnabled, settings.lockLayer == .wallpaper,
+              services.media.hasTrack else { return }
+        LockWallpaper.shared.prepare(media: services.media, screen: IslandController.preferredScreen())
     }
 
     private func prepareSpace() {
@@ -169,8 +186,9 @@ final class LockScreenController {
             space.adopt(panel)
             state.syncStyle()
             state.phase = .hidden
+            // La entrada empieza cuando macOS termina de mostrar su pantalla de bloqueo.
             Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 80_000_000)
+                try? await Task.sleep(nanoseconds: 60_000_000)
                 self?.state.phase = .shown
             }
 
@@ -178,7 +196,7 @@ final class LockScreenController {
             let mode = onWallpaper ? "fondo de pantalla (reloj de macOS)" : "encima de todo (reloj de Orbit)"
             reportTask?.cancel()
             reportTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
                 guard let self, !Task.isCancelled, self.isLocked else { return }
                 let bands = LockReport.bands(on: screen)
                 withAnimation(.spring(response: 0.7, dampingFraction: 0.86)) { self.state.bands = bands }
@@ -191,8 +209,8 @@ final class LockScreenController {
                 .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
                 .sink { [weak self] _ in
                     MainActor.assumeIsolated {
-                        guard let self, self.isLocked, LockWallpaper.shared.active else { return }
-                        LockWallpaper.shared.apply(media: self.services.media, to: screen)
+                        guard let self, self.isLocked else { return }
+                        LockWallpaper.shared.refresh(media: self.services.media, screen: screen)
                     }
                 } : nil
         }
@@ -215,7 +233,8 @@ final class LockScreenController {
         onChange?(false)
         artworkWatch = nil
         reportTask?.cancel()
-        LockWallpaper.shared.restore()
+        // Tu fondo vuelve con un fundido, por detrás de tus ventanas, mientras la portada vuela al notch.
+        DispatchQueue.main.async { LockWallpaper.shared.restore(animated: true) }
         hideTask?.cancel()
         if screenPanel?.isVisible == true { state.phase = .leaving }
         if islandPanel?.isVisible == true && Settings.shared.lockEnabled {
@@ -229,6 +248,8 @@ final class LockScreenController {
             guard !Task.isCancelled else { return }
             self.islandPanel?.orderOut(nil)
             self.screenPanel?.orderOut(nil)
+            // Sin vista mientras no se usa: nada se queda trabajando de fondo.
+            (self.screenPanel?.contentView as? FirstClickHostingView<AnyView>)?.rootView = AnyView(Color.clear)
             self.state.phase = .hidden
         }
     }
@@ -448,17 +469,16 @@ struct LockScreenView: View {
                 LockClock(dateSize: layout.clockDate, timeSize: layout.clockTime)
                     .frame(width: size.width)
                     .position(x: size.width / 2, y: layout.clockY)
-                    .modifier(Reveal(phase: state.phase, delay: 0.05, travel: -24, isStatic: isStatic))
+                    .modifier(Reveal(phase: state.phase, delay: 0.2, travel: -20, isStatic: isStatic, leaveDelay: 0.1))
             }
 
             if let track = media.track {
                 if let rect = layout.lyrics {
                     LockLyrics(size: rect.size, fontSize: layout.lyricsSize, align: layout.lyricsAlign,
-                               anchor: layout.lyricsAnchor, compact: layout.cardKind == .full)
+                               anchor: layout.lyricsAnchor, compact: layout.cardKind == .full, phase: state.phase)
                         .id(track.key)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
-                        .modifier(Reveal(phase: state.phase, delay: 0.32, travel: 30, isStatic: isStatic))
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
 
@@ -466,7 +486,7 @@ struct LockScreenView: View {
                          artWidth: layout.art.width)
                     .frame(width: layout.card.width, height: layout.card.height)
                     .position(x: layout.card.midX, y: layout.card.midY)
-                    .modifier(Reveal(phase: state.phase, delay: 0.22, travel: 34, isStatic: isStatic))
+                    .modifier(Reveal(phase: state.phase, delay: 0.42, travel: 26, isStatic: isStatic, leaveDelay: 0.05))
 
                 LockArtwork(rect: leaving ? notchRect : layout.art,
                             radius: leaving ? 6 : layout.artRadius,
@@ -475,7 +495,8 @@ struct LockScreenView: View {
                             shown: shown,
                             leaving: leaving,
                             onTap: { state.cycle() })
-                    .animation(leaving ? .spring(response: 0.75, dampingFraction: 0.86) : morph.delay(shown ? 0.12 : 0),
+                    .animation(leaving ? .spring(response: 0.72, dampingFraction: 0.9)
+                                       : (shown ? .spring(response: 1.0, dampingFraction: 0.8).delay(0.28) : .easeIn(duration: 0.2)),
                                value: state.phase)
             }
 
@@ -527,11 +548,32 @@ struct LockScreenView: View {
     }
 }
 
-/// Entrada y salida de cada pieza: aparece desde un desenfoque y al salir sube.
+/// Entrada y salida de cada pieza: aparece desde un desenfoque subiendo despacio y, al desbloquear, se va hacia arriba.
 struct Reveal: ViewModifier {
     let phase: LockScreenState.Phase
     let delay: Double
     let travel: CGFloat
+    let isStatic: Bool
+    var leaveDelay: Double = 0
+
+    func body(content: Content) -> some View {
+        let shown = phase == .shown || isStatic
+        let leaving = phase == .leaving
+        content
+            .opacity(shown ? 1 : 0)
+            .blur(radius: shown ? 0 : (leaving ? 8 : 16))
+            .offset(y: shown ? 0 : (leaving ? -travel * 0.7 : travel))
+            .scaleEffect(shown ? 1 : (leaving ? 0.98 : 0.94))
+            .animation(shown ? .spring(response: 0.95, dampingFraction: 0.86).delay(delay)
+                             : (leaving ? .easeInOut(duration: 0.5).delay(leaveDelay) : .easeIn(duration: 0.2)),
+                       value: phase)
+    }
+}
+
+/// Cada línea de la letra entra una detrás de otra, como una cascada.
+struct LineReveal: ViewModifier {
+    let phase: LockScreenState.Phase
+    let rank: Int
     let isStatic: Bool
 
     func body(content: Content) -> some View {
@@ -539,11 +581,11 @@ struct Reveal: ViewModifier {
         let leaving = phase == .leaving
         content
             .opacity(shown ? 1 : 0)
-            .blur(radius: shown ? 0 : 14)
-            .offset(y: shown ? 0 : (leaving ? -travel : travel))
-            .scaleEffect(shown ? 1 : 0.96)
-            .animation(shown ? .spring(response: 0.75, dampingFraction: 0.84).delay(delay)
-                             : .easeIn(duration: 0.35), value: phase)
+            .blur(radius: shown ? 0 : 10)
+            .offset(y: shown ? 0 : (leaving ? -22 : 30 + CGFloat(rank) * 6))
+            .animation(shown ? .spring(response: 0.95, dampingFraction: 0.86).delay(0.5 + Double(rank) * 0.065)
+                             : (leaving ? .easeIn(duration: 0.38).delay(Double(rank) * 0.035) : .easeIn(duration: 0.2)),
+                       value: phase)
     }
 }
 
@@ -782,8 +824,9 @@ struct LockArtwork: View {
         .rotation3DEffect(.degrees(Double(-tilt.height) * 4), axis: (x: 1, y: 0, z: 0), perspective: 0.3)
         .rotation3DEffect(.degrees(Double(tilt.width) * 5), axis: (x: 0, y: 1, z: 0), perspective: 0.3)
         .opacity(leaving ? 0 : (shown ? 1 : 0))
-        .scaleEffect(shown || leaving ? 1 : 0.72)
-        .blur(radius: shown || leaving ? 0 : 18)
+        .animation(leaving ? .easeIn(duration: 0.26).delay(0.4) : nil, value: leaving)
+        .scaleEffect(shown || leaving ? 1 : 0.8)
+        .blur(radius: shown || leaving ? 0 : 22)
         .frame(width: rect.width, height: rect.height)
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .onTapGesture { onTap() }
@@ -1036,6 +1079,8 @@ struct LockLyrics: View {
     let align: TextAlign
     var anchor: CGFloat = 0.36
     var compact = false
+    var phase: LockScreenState.Phase = .shown
+    @Environment(\.orbitStatic) private var isStatic
     @EnvironmentObject private var media: NowPlayingService
     @ObservedObject private var settings = Settings.shared
 
@@ -1079,6 +1124,7 @@ struct LockLyrics: View {
                     .frame(width: size.width, alignment: align == .center ? .center : .leading)
                     .offset(y: size.height * anchor - dotsHeight / 2)
                     .transition(.opacity)
+                    .modifier(LineReveal(phase: phase, rank: 0, isStatic: isStatic))
             }
             if !lyrics.isEmpty && last >= first {
                 ForEach(first...last, id: \.self) { index in
@@ -1103,6 +1149,7 @@ struct LockLyrics: View {
                         .delay(index >= current ? Double(index - max(current, 0)) * 0.045 : 0), value: current)
                     .animation(.spring(response: 0.7, dampingFraction: 0.86), value: intro)
                     .transition(.opacity)
+                    .modifier(LineReveal(phase: phase, rank: index - first + (intro ? 1 : 0), isStatic: isStatic))
                 }
             }
         }

@@ -143,7 +143,7 @@ enum Snapshot {
         }
 
         // La imagen que se pone como fondo de pantalla mientras la Mac está bloqueada.
-        if let wallpaper = LockWallpaper.shared.render(media: services.media, size: CGSize(width: 1710, height: 1112), scale: 1) {
+        if let wallpaper = LockWallpaper.shared.render(media: services.media, size: CGSize(width: 1710, height: 1112)) {
             let rep = NSBitmapImageRep(cgImage: wallpaper)
             if let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) {
                 try? data.write(to: directory.appendingPathComponent("27-fondo-de-pantalla.jpg"))
@@ -201,10 +201,19 @@ enum Snapshot {
         island.collapse()
 
         delegate.previewLockScreen()
-        await pause(2.4)
+        // Fotogramas de la entrada y la salida, para revisar la coreografía.
+        await pause(0.35)
+        screen(to: directory, "34a-live-lock-entrada")
+        await pause(0.3)
+        screen(to: directory, "34b-live-lock-entrada")
+        await pause(1.6)
         screen(to: directory, "34-live-lock-preview")
-        delegate.lockScreenController?.closePreview()
-        await pause(0.5)
+        delegate.lockScreenController?.closePreview(animated: true)
+        await pause(0.15)
+        screen(to: directory, "35a-live-lock-salida")
+        await pause(0.25)
+        screen(to: directory, "35b-live-lock-salida")
+        await pause(1.0)
 
         for section in SettingsSection.allCases {
             delegate.showSettings(section)
