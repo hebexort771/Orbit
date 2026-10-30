@@ -1325,28 +1325,33 @@ struct LockStyleThumb: View {
                                startPoint: .topLeading, endPoint: .bottomTrailing)
                 Capsule().fill(Color.white.opacity(0.7)).frame(width: W * 0.16, height: H * 0.07)
                     .position(x: W / 2, y: H * 0.15)
-                switch style {
-                case .widget:
-                    RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.18))
-                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.6))
-                        .frame(width: W * 0.46, height: H * 0.32).position(x: W / 2, y: H * 0.45)
-                    art(W * 0.08).position(x: W * 0.33, y: H * 0.38)
-                    Capsule().fill(Color.white.opacity(0.5)).frame(width: W * 0.36, height: 2).position(x: W / 2, y: H * 0.5)
-                case .lyrics:
-                    art(W * 0.24).position(x: W * 0.28, y: H * 0.5)
-                    lines(W * 0.38, count: 4, H: H).position(x: W * 0.7, y: H * 0.55)
-                case .cover:
-                    art(W * 0.28).position(x: W / 2, y: H * 0.5)
-                    Capsule().fill(Color.white.opacity(0.3)).frame(width: W * 0.34, height: 3).position(x: W / 2, y: H * 0.84)
-                case .karaoke:
-                    lines(W * 0.6, count: 3, H: H, center: true).position(x: W / 2, y: H * 0.48)
-                    Capsule().fill(Color.white.opacity(0.18)).frame(width: W * 0.5, height: H * 0.14).position(x: W / 2, y: H * 0.82)
-                case .card:
-                    RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.16))
-                        .frame(width: W * 0.42, height: H * 0.5).position(x: W / 2, y: H * 0.58)
-                    art(W * 0.1).position(x: W * 0.36, y: H * 0.43)
-                }
+                figure(W: W, H: H)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func figure(W: CGFloat, H: CGFloat) -> some View {
+        switch style {
+        case .widget:
+            RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.18))
+                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.6))
+                .frame(width: W * 0.46, height: H * 0.32).position(x: W / 2, y: H * 0.45)
+            art(W * 0.08).position(x: W * 0.33, y: H * 0.38)
+            Capsule().fill(Color.white.opacity(0.5)).frame(width: W * 0.36, height: 2).position(x: W / 2, y: H * 0.5)
+        case .lyrics:
+            art(W * 0.24).position(x: W * 0.28, y: H * 0.5)
+            lines(W * 0.38, count: 4, H: H).position(x: W * 0.7, y: H * 0.55)
+        case .cover:
+            art(W * 0.28).position(x: W / 2, y: H * 0.5)
+            Capsule().fill(Color.white.opacity(0.3)).frame(width: W * 0.34, height: 3).position(x: W / 2, y: H * 0.84)
+        case .karaoke:
+            lines(W * 0.6, count: 3, H: H, center: true).position(x: W / 2, y: H * 0.48)
+            Capsule().fill(Color.white.opacity(0.18)).frame(width: W * 0.5, height: H * 0.14).position(x: W / 2, y: H * 0.82)
+        case .card:
+            RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.16))
+                .frame(width: W * 0.42, height: H * 0.5).position(x: W / 2, y: H * 0.58)
+            art(W * 0.1).position(x: W * 0.36, y: H * 0.43)
         }
     }
 
