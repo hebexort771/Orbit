@@ -1,19 +1,19 @@
-### Orbit 1.4.0 — nativa, compacta y con Liquid Glass
+### Orbit 1.5.0 — al estilo Alcove, con firma propia
 
-**Se siente como parte de macOS**
-- Nueva animación **Nativa** (la que viene por defecto): la isla crece desde el notch con un muelle preciso y un rebote mínimo, como la Dynamic Island.
-- Al pasar el cursor, la isla solo "respira" un poco en vez de saltar.
-- Isla abierta **Compacta** por defecto, más estrecha. Las tallas Normal y Amplia siguen en Ajustes → Apariencia.
-- Transiciones más ligeras para la tarjeta gráfica (sin desenfoques animados) y sin brillo detrás de la isla abierta, para que todo vaya fluido.
-- Compilada con el SDK de macOS 26: en Tahoe, Ajustes y los controles usan el diseño nuevo del sistema.
-- El notch líquido ahora viene apagado (se puede encender en Apariencia).
+**Pantalla bloqueada**
+- Nuevo diseño por defecto: la portada grande a la izquierda, un reproductor de vidrio debajo y la letra grande a la derecha, sobre la portada difuminada a pantalla completa. El reloj sigue siendo el de tu Mac.
+- El reproductor pequeño trae título, artista, barra de progreso y los botones aleatorio, anterior, reproducir, siguiente y la salida de audio. Su borde toma el color de la canción.
+- Arriba a la izquierda, dos botones de vidrio: mostrar u ocultar la letra y cambiar de estilo.
+- **Firma de Orbit:** al bloquear, la portada sale del notch como una gota y baja a su sitio. Al desbloquear, vuela de vuelta y cae dentro del notch, que salpica como agua y lanza la estela de luz.
 
-**Liquid Glass**
-- Nuevo en **Ajustes → Apariencia → Material**: Negro o **Liquid Glass**. La isla abierta y el reproductor de la pantalla bloqueada se vuelven de vidrio (en macOS 26; en versiones anteriores, un vidrio esmerilado oscuro).
+**La isla**
+- Al abrirse, el contenido llega desenfocado y se enfoca al asentarse, como la Dynamic Island. La portada pequeña se transforma en la grande, y al cerrarse vuelve a su sitio.
+- Animación más rápida y precisa, con un rebote mínimo.
+- Vuelve la gota de agua: al acercar el cursor, el notch se estira y cuelga una gota que se funde con la isla al abrirse.
+- La letra en la isla sigue igual.
 
-**Pantalla bloqueada: nuevo estilo Widget**
-- Es el estilo por defecto: un reproductor de vidrio debajo del reloj de macOS, como una Actividad en vivo. Tu fondo y tu reloj no cambian.
-- Toca la portada para pasar a los estilos a pantalla completa (Letras, Portada, Karaoke, Tarjeta); el fondo se adapta solo.
+**Ajustes más simples**
+- Se quitaron los ajustes que casi nadie toca (duraciones, estilos de barra, redondez, velocidad, opciones avanzadas de la letra y la portada). Quedan solo los importantes.
 
 **Instalar:** cierra Orbit (icono de la barra de menús → Salir), abre `Orbit.dmg` y arrastra Orbit a Aplicaciones → Reemplazar. Si macOS no te deja abrirlo: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**.
 
