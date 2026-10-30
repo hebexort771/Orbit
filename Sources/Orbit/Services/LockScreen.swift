@@ -1287,11 +1287,14 @@ struct LyricDots: View {
             let t = timeline.date.timeIntervalSinceReferenceDate
             HStack(spacing: size * 0.3) {
                 ForEach(0..<3, id: \.self) { index in
-                    let fill = max(0, min(1, progress * 3 - Double(index)))
+                    let fill: Double = max(0, min(1, progress * 3 - Double(index)))
+                    let wobble: Double = sin(t * 2.6 + Double(index) * 0.7)
+                    let scale = CGFloat(1 + 0.14 * wobble * (1 - fill * 0.6))
+                    let side: CGFloat = size * 0.34
                     Circle()
                         .fill(Color.white.opacity(0.28 + 0.72 * fill))
-                        .frame(width: size * 0.34, height: size * 0.34)
-                        .scaleEffect(1 + 0.14 * sin(t * 2.6 + Double(index) * 0.7) * (1 - fill * 0.6))
+                        .frame(width: side, height: side)
+                        .scaleEffect(scale)
                 }
             }
             .frame(height: size * 1.1)
