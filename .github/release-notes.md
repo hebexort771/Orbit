@@ -1,21 +1,19 @@
-### Orbit 1.3.1 — letra como Apple Music y portadas nítidas
+### Orbit 1.4.0 — nativa, compacta y con Liquid Glass
 
-**Letra**
-- Cada línea se enciende justo en el momento en que se canta, como en Apple Music. Antes cambiaba casi medio segundo antes de tiempo.
-- Ya no se ilumina palabra por palabra con tiempos inventados, que se adelantaban o atrasaban al cantante. Si la letra trae el tiempo real de cada palabra, se ilumina palabra por palabra.
-- Si aun así quieres el cálculo aproximado: **Ajustes → Reproduciendo → Calcular palabra por palabra**.
+**Se siente como parte de macOS**
+- Nueva animación **Nativa** (la que viene por defecto): la isla crece desde el notch con un muelle preciso y un rebote mínimo, como la Dynamic Island.
+- Al pasar el cursor, la isla solo "respira" un poco en vez de saltar.
+- Isla abierta **Compacta** por defecto, más estrecha. Las tallas Normal y Amplia siguen en Ajustes → Apariencia.
+- Transiciones más ligeras para la tarjeta gráfica (sin desenfoques animados) y sin brillo detrás de la isla abierta, para que todo vaya fluido.
+- Compilada con el SDK de macOS 26: en Tahoe, Ajustes y los controles usan el diseño nuevo del sistema.
+- El notch líquido ahora viene apagado (se puede encender en Apariencia).
 
-**Portadas en alta calidad**
-- Si la app de música entrega una portada pequeña, Orbit busca la original en el catálogo de Apple, hasta 1200 px, y la cambia sin que se note. Solo la usa si es exactamente la misma imagen.
-- La portada de la pantalla bloqueada ya no pasa por una transformación 3D cuando la inclinación está apagada, así se dibuja a resolución completa.
+**Liquid Glass**
+- Nuevo en **Ajustes → Apariencia → Material**: Negro o **Liquid Glass**. La isla abierta y el reproductor de la pantalla bloqueada se vuelven de vidrio (en macOS 26; en versiones anteriores, un vidrio esmerilado oscuro).
 
-### Novedades de 1.3.0 — notch líquido
-
-**Notch líquido**
-- Al acercar el cursor por debajo del notch, el borde se estira hacia él como agua y cuelga una gota brillante que sigue al cursor.
-- Si alejas el cursor, la gota vuelve a entrar al notch y el borde ondula.
-- Al abrirse y cerrarse, la isla ondula como el agua al asentarse.
-- Se puede apagar en **Ajustes → Apariencia → Notch líquido**.
+**Pantalla bloqueada: nuevo estilo Widget**
+- Es el estilo por defecto: un reproductor de vidrio debajo del reloj de macOS, como una Actividad en vivo. Tu fondo y tu reloj no cambian.
+- Toca la portada para pasar a los estilos a pantalla completa (Letras, Portada, Karaoke, Tarjeta); el fondo se adapta solo.
 
 **Instalar:** cierra Orbit (icono de la barra de menús → Salir), abre `Orbit.dmg` y arrastra Orbit a Aplicaciones → Reemplazar. Si macOS no te deja abrirlo: Ajustes del Sistema → Privacidad y seguridad → **Abrir igualmente**.
 
