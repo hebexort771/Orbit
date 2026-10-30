@@ -20,11 +20,11 @@ struct Motion {
         case .native:
             // Como la Dynamic Island: el ancho va un pelo por delante del alto, muelles firmes con un rebote mínimo,
             // y el contenido aparece cuando la forma ya casi llegó.
-            return Motion(width: .spring(response: r(0.34), dampingFraction: 0.8),
-                          height: .spring(response: r(0.4), dampingFraction: 0.84),
+            return Motion(width: .spring(response: r(0.3), dampingFraction: 0.8),
+                          height: .spring(response: r(0.34), dampingFraction: 0.8),
                           content: .spring(response: r(0.3), dampingFraction: 0.9),
-                          contentIn: .easeOut(duration: r(0.22)).delay(r(0.08)),
-                          contentOut: .easeIn(duration: r(0.09)),
+                          contentIn: .spring(response: r(0.3), dampingFraction: 0.92).delay(r(0.05)),
+                          contentOut: .easeIn(duration: r(0.12)),
                           hover: .spring(response: 0.3, dampingFraction: 0.78),
                           stagger: r(0.025),
                           liquid: false)
@@ -66,9 +66,11 @@ struct BlurFade: ViewModifier {
     var lift: CGFloat = -6
 
     func body(content: Content) -> some View {
+        // Como la Dynamic Island: el contenido llega desenfocado y algo pequeño, y se enfoca al asentarse.
         content
             .opacity(progress)
-            .scaleEffect(0.94 + 0.06 * progress, anchor: .top)
+            .blur(radius: (1 - progress) * 9)
+            .scaleEffect(0.9 + 0.1 * progress, anchor: .top)
             .offset(y: (1 - progress) * lift)
     }
 }
@@ -111,6 +113,31 @@ extension View {
 
 private struct OrbitStaticKey: EnvironmentKey {
     static let defaultValue = false
+}
+
+private struct IslandNamespaceKey: EnvironmentKey {
+    static let defaultValue: Namespace.ID? = nil
+}
+
+extension EnvironmentValues {
+    /// Para que la portada pequeña se transforme en la grande al abrir la isla (y al revés).
+    var islandNamespace: Namespace.ID? {
+        get { self[IslandNamespaceKey.self] }
+        set { self[IslandNamespaceKey.self] = newValue }
+    }
+}
+
+/// La portada viaja de su sitio en la isla cerrada a su sitio en la abierta.
+struct MatchedArt: ViewModifier {
+    @Environment(\.islandNamespace) private var namespace
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedGeometryEffect(id: "island.art", in: namespace)
+        } else {
+            content
+        }
+    }
 }
 
 extension EnvironmentValues {

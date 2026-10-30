@@ -253,6 +253,8 @@ final class LockScreenController {
             Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 150_000_000)
                 self?.islandModel.show(.lock(locked: true), for: nil)
+                // La portada acaba de salir del notch: el borde ondula como agua.
+                if Settings.shared.liquidNotch { self?.islandModel.liquid.splash(strength: 4) }
             }
         }
     }
@@ -268,6 +270,14 @@ final class LockScreenController {
         if screenPanel?.isVisible == true { state.phase = .leaving }
         if islandPanel?.isVisible == true && Settings.shared.lockEnabled {
             islandModel.show(.lock(locked: false), for: nil)
+        }
+        // La portada cae dentro del notch: al llegar, salpica como una gota en el agua.
+        if state.phase == .leaving && Settings.shared.liquidNotch {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 430_000_000)
+                self?.islandModel.liquid.splash(strength: 5.5)
+                self?.islandModel.fireComet(AccentStore.current)
+            }
         }
         hideTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 1_100_000_000)
@@ -416,19 +426,21 @@ struct LockLayout {
             cardKind = .widget
             cardRadius = 30
         case .lyrics:
-            let cardH: CGFloat = 138
-            let side = max(150, min(W * 0.24, room - cardH - 20))
-            let groupH = side + 20 + cardH
+            // Portada grande a la izquierda, debajo un reproductor de vidrio más angosto y centrado,
+            // y la letra grande a la derecha.
+            let cardH: CGFloat = 112
+            let side = max(170, min(W * 0.26, room - cardH - 18))
+            let groupH = side + 18 + cardH
             let y0 = top + max(0, (room - groupH) / 2)
-            // Portada + espacio + letra forman un solo bloque centrado en la pantalla.
-            let gap = W * 0.06
-            let lyricsW = min(W * 0.4, 640)
-            let x0 = (W - (side + gap + lyricsW)) / 2
+            let gap = W * 0.095
+            let lyricsW = min(W * 0.3, 560)
+            let x0 = (W - (side + gap + lyricsW)) / 2 - W * 0.02
             art = CGRect(x: x0, y: y0, width: side, height: side)
-            artRadius = side * 0.07
-            card = CGRect(x: art.minX, y: art.maxY + 20, width: side, height: cardH)
+            artRadius = max(10, side * 0.035)
+            let cw = max(280, side * 0.72)
+            card = CGRect(x: art.midX - cw / 2, y: art.maxY + 18, width: cw, height: cardH)
             cardKind = .under
-            cardRadius = 22
+            cardRadius = 18
             // La letra ocupa la misma altura que portada + controles; la línea que suena queda a la altura de la portada.
             let lyricsTop = art.minY - 28
             lyrics = CGRect(x: art.maxX + gap, y: lyricsTop, width: lyricsW, height: card.maxY + 16 - lyricsTop)
@@ -526,16 +538,24 @@ struct LockScreenView: View {
                     .position(x: layout.card.midX, y: layout.card.midY)
                     .modifier(Reveal(phase: state.phase, delay: 0.42, travel: 26, isStatic: isStatic, leaveDelay: 0.05))
 
-                LockArtwork(rect: leaving ? notchRect : layout.art,
-                            radius: leaving ? 6 : layout.artRadius,
+                // Firma de Orbit: la portada sale del notch como una gota al bloquear
+                // y vuelve a entrar en él al desbloquear.
+                LockArtwork(rect: (leaving || !shown) ? notchRect : layout.art,
+                            radius: (leaving || !shown) ? 6 : layout.artRadius,
                             reflection: layout.reflection && !leaving,
                             tilt: settings.lockTilt ? tilt : .zero,
                             shown: shown,
                             leaving: leaving,
                             onTap: { state.cycle() })
-                    .animation(leaving ? .spring(response: 0.72, dampingFraction: 0.9)
-                                       : (shown ? .spring(response: 1.0, dampingFraction: 0.8).delay(0.28) : .easeIn(duration: 0.2)),
+                    .animation(leaving ? .spring(response: 0.62, dampingFraction: 0.86)
+                                       : (shown ? .spring(response: 0.78, dampingFraction: 0.78).delay(0.18) : nil),
                                value: state.phase)
+            }
+
+            if layout.effective.fullScreen {
+                quickButtons
+                    .position(x: 40, y: safeTop + 64)
+                    .modifier(Reveal(phase: state.phase, delay: 0.5, travel: -10, isStatic: isStatic))
             }
 
             if preview && state.phase == .shown {
@@ -577,6 +597,29 @@ struct LockScreenView: View {
     private var notchRect: CGRect {
         let side = max(18, safeTop - 10)
         return CGRect(x: size.width / 2 - side / 2, y: (safeTop - side) / 2, width: side, height: side)
+    }
+
+    /// Botones redondos de vidrio arriba a la izquierda: mostrar u ocultar la letra y cambiar de estilo.
+    private var quickButtons: some View {
+        VStack(spacing: 10) {
+            roundButton(settings.lockScreenLyrics ? "quote.bubble.fill" : "quote.bubble") {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { settings.lockScreenLyrics.toggle() }
+            }
+            roundButton("rectangle.3.group") { state.cycle() }
+        }
+    }
+
+    private func roundButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .contentTransition(.symbolEffect(.replace))
+                .frame(width: 32, height: 32)
+                .background(GlassSurface(shape: Circle(), liquid: settings.islandMaterial == .glass, tint: .black.opacity(0.18)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Dónde está tu foto de usuario en la pantalla bloqueada de macOS.
@@ -854,16 +897,15 @@ struct LockArtwork: View {
                         .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
                         .allowsHitTesting(false)
                 }
-                .shadow(color: glow.opacity(0.55), radius: side * 0.16, y: side * 0.08)
-                .shadow(color: .black.opacity(0.35), radius: 12, y: 8)
+                .shadow(color: glow.opacity(0.4), radius: side * 0.1, y: side * 0.05)
+                .shadow(color: .black.opacity(0.3), radius: 10, y: 6)
         }
-        .scaleEffect(media.isPlaying ? 1 : 0.86)
+        .scaleEffect(media.isPlaying ? 1 : 0.9)
         .animation(.spring(response: 0.55, dampingFraction: 0.72), value: media.isPlaying)
         .modifier(Tilt(tilt: tilt, enabled: settings.lockTilt))
         .opacity(leaving ? 0 : (shown ? 1 : 0))
-        .animation(leaving ? .easeIn(duration: 0.26).delay(0.4) : nil, value: leaving)
-        .scaleEffect(shown || leaving ? 1 : 0.8)
-        .blur(radius: shown || leaving ? 0 : 22)
+        .animation(leaving ? .easeIn(duration: 0.22).delay(0.36) : .easeOut(duration: 0.18).delay(0.18), value: shown)
+        .blur(radius: shown || leaving ? 0 : 6)
         .frame(width: rect.width, height: rect.height)
         .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
         .onTapGesture { onTap() }
@@ -926,11 +968,16 @@ struct LockCard: View {
 
     var body: some View {
         ZStack {
-            if kind == .widget {
+            if kind == .widget || kind == .under {
                 GlassSurface(shape: RoundedRectangle(cornerRadius: radius, style: .continuous),
-                             liquid: settings.islandMaterial == .glass, tint: .black.opacity(0.26))
+                             liquid: settings.islandMaterial == .glass, tint: .black.opacity(kind == .under ? 0.16 : 0.26))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .strokeBorder((media.palette.first ?? .white).opacity(0.45), lineWidth: 1)
+                            .blendMode(.plusLighter)
+                    )
                     .shadow(color: .black.opacity(0.22), radius: 20, y: 10)
-            } else if kind != .under {
+            } else {
                 card
             }
             content
@@ -972,15 +1019,23 @@ struct LockCard: View {
             .padding(18)
             .frame(maxHeight: .infinity, alignment: .top)
         case .under:
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(track.title).font(.system(size: 16, weight: .semibold)).lineLimit(1)
-                    Text(track.artist).font(.system(size: 14, weight: .regular)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+            VStack(spacing: 8) {
+                ZStack(alignment: .topTrailing) {
+                    VStack(spacing: 1) {
+                        Text(track.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                        Text(track.artist).font(.system(size: 12)).foregroundStyle(.white.opacity(0.68)).lineLimit(1)
+                    }
+                    .padding(.horizontal, 30)
+                    .frame(maxWidth: .infinity)
+                    Waveform(playing: media.isPlaying, style: settings.waveformStyle, color: .white.opacity(0.8), bars: 5, barWidth: 2)
+                        .frame(width: 16, height: 11)
+                        .padding(.top, 3)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                LockProgress()
-                LockControlsRow()
+                LockProgress(inline: true)
+                LockControlsRow(compact: true)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .frame(maxHeight: .infinity, alignment: .top)
         case .cover:
             VStack(spacing: 10) {
@@ -1041,6 +1096,8 @@ struct LockCard: View {
 
 /// Barra de progreso de Apple Music: fina, con los tiempos debajo en las dos puntas.
 struct LockProgress: View {
+    /// En una sola línea: tiempo, barra, tiempo (para la tarjeta pequeña).
+    var inline = false
     @EnvironmentObject private var media: NowPlayingService
     @State private var dragFraction: Double?
 
@@ -1050,9 +1107,34 @@ struct LockProgress: View {
             let live = media.elapsed(at: timeline.date)
             let elapsed = dragFraction.map { $0 * duration } ?? live
             let fraction = duration > 0 ? min(1, max(0, elapsed / duration)) : 0
+            if inline {
+                HStack(spacing: 8) {
+                    Text(TimeText.clock(elapsed)).frame(width: 30, alignment: .leading)
+                    bar(fraction: fraction, duration: duration, thin: true)
+                    Text("−" + TimeText.clock(max(0, duration - elapsed))).frame(width: 34, alignment: .trailing)
+                }
+                .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.55))
+                .frame(height: 12)
+            } else {
             VStack(spacing: 5) {
+                bar(fraction: fraction, duration: duration, thin: false)
+                .frame(height: 10)
+                HStack {
+                    Text(TimeText.clock(elapsed))
+                    Spacer()
+                    Text("−" + TimeText.clock(max(0, duration - elapsed)))
+                }
+                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.5))
+            }
+            }
+        }
+    }
+
+    private func bar(fraction: Double, duration: Double, thin: Bool) -> some View {
                 GeometryReader { geo in
-                    let height: CGFloat = dragFraction == nil ? 5 : 8
+                    let height: CGFloat = dragFraction == nil ? (thin ? 4 : 5) : 8
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.2))
                         Capsule().fill(Color.white.opacity(0.75))
@@ -1074,24 +1156,51 @@ struct LockProgress: View {
                             }
                     )
                 }
-                .frame(height: 10)
-                HStack {
-                    Text(TimeText.clock(elapsed))
-                    Spacer()
-                    Text("−" + TimeText.clock(max(0, duration - elapsed)))
-                }
-                .font(.system(size: 11, weight: .medium).monospacedDigit())
-                .foregroundStyle(.white.opacity(0.5))
-            }
-        }
     }
 }
 
 /// Aleatorio a la izquierda, anterior/reproducir/siguiente al centro y repetir a la derecha.
 struct LockControlsRow: View {
+    /// Versión pequeña: aleatorio, anterior, reproducir, siguiente y la salida de audio, repartidos.
+    var compact = false
     @EnvironmentObject private var media: NowPlayingService
+    @EnvironmentObject private var audio: AudioService
 
     var body: some View {
+        if compact { small } else { large }
+    }
+
+    private var small: some View {
+        HStack(spacing: 0) {
+            Button { media.toggleShuffle() } label: {
+                Image(systemName: "shuffle").font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(media.shuffleOn ? Color.white : Color.white.opacity(0.6))
+            }
+            .buttonStyle(OrbitButtonStyle(size: 28))
+            Spacer(minLength: 0)
+            Button { media.previous() } label: { Image(systemName: "backward.fill").font(.system(size: 15, weight: .semibold)) }
+                .buttonStyle(OrbitButtonStyle(size: 32))
+            Spacer(minLength: 0)
+            Button { media.togglePlay() } label: {
+                Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(OrbitButtonStyle(size: 36))
+            Spacer(minLength: 0)
+            Button { media.next() } label: { Image(systemName: "forward.fill").font(.system(size: 15, weight: .semibold)) }
+                .buttonStyle(OrbitButtonStyle(size: 32))
+            Spacer(minLength: 0)
+            Image(systemName: audio.output.symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.6))
+                .frame(width: 28, height: 28)
+                .help(audio.deviceName)
+        }
+        .foregroundStyle(.white)
+    }
+
+    private var large: some View {
         HStack(spacing: 0) {
             Button { media.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
@@ -1179,7 +1288,7 @@ struct LockLyrics: View {
 
     private func lines(time: Double, current: Int) -> some View {
         let lyrics = media.lyrics
-        let gap = fontSize * (compact ? 0.35 : 0.55)
+        let gap = fontSize * (compact ? 0.35 : 0.8)
         let heights = lyrics.map { LyricsMetrics.height($0.text, size: fontSize, width: size.width) }
         var ys: [CGFloat] = []
         var y: CGFloat = 0

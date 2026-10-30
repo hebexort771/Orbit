@@ -46,12 +46,6 @@ struct GeneralSettings: View {
             Picker(tr("Mostrar en", "Show on"), selection: $settings.display) {
                 ForEach(DisplayChoice.allCases) { Text($0.title).tag($0) }
             }
-            Picker(selection: $settings.virtualStyle) {
-                ForEach(VirtualStyle.allCases) { Text($0.title).tag($0) }
-            } label: {
-                Text(tr("En pantallas sin notch", "On screens without a notch"))
-                Text(tr("Monitores externos y Mac sin notch", "External monitors and Macs without a notch"))
-            }
             Picker(tr("Visibilidad sin notch", "Visibility without notch"), selection: $settings.virtualVisibility) {
                 ForEach(VirtualVisibility.allCases) { Text($0.title).tag($0) }
             }
@@ -178,7 +172,6 @@ struct BatterySettings: View {
             Toggle(tr("Mostrar porcentaje", "Show percentage"), isOn: $settings.batteryPercent)
             Toggle(tr("Avisar con batería baja (20 %, 10 % y 5 %)", "Warn on low battery (20%, 10% and 5%)"), isOn: $settings.batteryLow)
             Toggle(tr("Avisar cuando termine de cargar", "Tell me when fully charged"), isOn: $settings.batteryFull)
-            SliderRow(title: tr("Duración", "Duration"), value: $settings.batteryDuration, range: 1...6, step: 0.2)
         }
     }
 }
@@ -201,7 +194,6 @@ struct ConnectivitySettings: View {
             }
             Toggle(tr("Mostrar batería (AirPods y Beats)", "Show battery (AirPods and Beats)"), isOn: $settings.bluetoothBattery)
             Toggle(tr("Avisar también al desconectar", "Also alert on disconnect"), isOn: $settings.bluetoothDisconnect)
-            SliderRow(title: tr("Duración", "Duration"), value: $settings.bluetoothDuration, range: 1...6, step: 0.2)
         }
     }
 }
@@ -251,17 +243,6 @@ struct SoundSettings: View {
             if settings.replaceSystemHUD { AccessibilityRow() }
             Toggle(tr("Mostrar el dispositivo de salida", "Show the output device"), isOn: $settings.soundShowDevice)
             Toggle(tr("Mostrar porcentaje", "Show percentage"), isOn: $settings.soundPercent)
-            SliderRow(title: tr("Duración", "Duration"), value: $settings.soundDuration, range: 0.6...4, step: 0.1)
-        }
-        Section(tr("Estilo de la barra", "Bar style")) {
-            StyleCards(BarStyle.allCases, selection: $settings.soundBarStyle, title: { $0.title }) { style in
-                LevelBar(value: 0.62, style: style, accent: .accentColor, animation: nil)
-                    .frame(width: 70, height: 6)
-            }
-            Picker(tr("Animación", "Animation"), selection: $settings.soundAnimation) {
-                ForEach(HUDAnimation.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
         }
     }
 }
@@ -334,19 +315,14 @@ struct NowPlayingSettings: View {
                 Text(tr("Mostrar lo que se reproduce", "Show what’s playing"))
                 Text(tr("Música, Spotify, Podcasts, YouTube en el navegador y más", "Music, Spotify, Podcasts, YouTube in the browser and more"))
             }
-            SliderRow(title: tr("Tiempo en pausa", "Idle duration"),
-                      subtitle: tr("Cuánto sigue visible después de pausar", "How long it stays after pausing"),
-                      value: $settings.musicIdle, range: 1...15, step: 0.5)
         }
         Section(tr("Onda de audio", "Waveform")) {
             StyleCards(WaveformStyle.allCases, selection: $settings.waveformStyle, title: { $0.title }) { style in
                 Waveform(playing: true, style: style, color: demoMedia.accent, bars: 5, barWidth: 3.5)
                     .frame(width: 34, height: 26)
             }
-            Toggle(tr("Onda en la vista compacta", "Compact waveform"), isOn: $settings.compactWaveform)
         }
         Section(tr("Detalles", "Details")) {
-            Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
             Toggle(isOn: $settings.trackPeek) {
                 Text(tr("Anunciar cada canción nueva", "Announce each new song"))
                 Text(tr("La isla muestra un momento la portada, el título y el artista", "The island briefly shows the artwork, title and artist"))
@@ -364,16 +340,6 @@ struct NowPlayingSettings: View {
                         "If lyrics lag behind the singer, raise it (+); if they run ahead, lower it (−)."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                Toggle(isOn: $settings.lyricsEstimateWords) {
-                    Text(tr("Calcular palabra por palabra", "Estimate word by word"))
-                    Text(tr("Para letras que solo traen el tiempo de cada línea. Es aproximado: puede adelantarse o atrasarse al cantante",
-                            "For lyrics that only have line timings. It's approximate and may drift from the singer"))
-                }
-            }
-            Toggle(isOn: $settings.hdArtwork) {
-                Text(tr("Portadas en alta calidad", "High-quality artwork"))
-                Text(tr("Si la app de música entrega una portada pequeña, Orbit busca la original en 1200 px en el catálogo de Apple",
-                        "If the music app provides a small cover, Orbit finds the original at 1200 px in Apple's catalog"))
             }
             Toggle(tr("Ocultar si la app de música está al frente", "Hide while the music app is in front"), isOn: $settings.hideWhenSourceActive)
         }
@@ -482,42 +448,13 @@ struct LockScreenSettings: View {
                 .foregroundStyle(.secondary)
         }
 
-        Section(tr("Fondo", "Background")) {
+        Section(tr("Fondo y letra", "Background and lyrics")) {
             Picker(tr("Fondo", "Background"), selection: $settings.lockBackground) {
                 ForEach(LockBackground.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            Toggle(isOn: $settings.lockMotion) {
-                Text(tr("Colores en movimiento", "Moving colors"))
-                Text(tr("Los colores de la portada se mueven despacio, como en Apple Music", "The artwork colors drift slowly, like Apple Music"))
-            }
-            .disabled(settings.lockBackground != .aurora)
-        }
-
-
-        Section(tr("Letra", "Lyrics")) {
             Toggle(tr("Mostrar la letra", "Show lyrics"), isOn: $settings.lockScreenLyrics)
-            SliderRow(title: tr("Tamaño", "Size"), value: $settings.lockLyricsSize, range: 24...48, step: 1,
-                      format: { String(format: "%.0f pt", $0) })
-            Picker(tr("Alineación", "Alignment"), selection: $settings.lockLyricsAlign) {
-                ForEach(TextAlign.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            Toggle(isOn: $settings.lockLyricsBlur) {
-                Text(tr("Desenfocar las otras líneas", "Blur the other lines"))
-                Text(tr("Solo la línea que suena queda nítida", "Only the line being sung stays sharp"))
-            }
         }
-
-        Section(tr("Portada", "Artwork")) {
-            Toggle(isOn: $settings.lockTilt) {
-                Text(tr("Inclinar con el cursor", "Tilt with the pointer"))
-                Text(tr("La portada se inclina un poco al pasar el cursor por encima y vuelve a quedar recta sola", "The artwork tilts slightly while the pointer is over it, then straightens itself"))
-            }
-            Toggle(tr("Girar la portada al cambiar de canción", "Flip the artwork on track change"), isOn: $settings.artworkFlip)
-        }
-
-        LockReportSection()
     }
 }
 
@@ -576,46 +513,18 @@ struct AppearanceSettings: View {
                 .foregroundStyle(.secondary)
         }
 
-        Section(tr("Luz", "Light")) {
-            Toggle(isOn: $settings.comet) {
-                Text(tr("Estela orbital", "Orbit trail"))
-                Text(tr("Un destello recorre el borde de la isla cuando llega algo nuevo", "A streak of light runs along the island when something new arrives"))
-            }
-            Picker(tr("Color de la estela", "Trail color"), selection: $settings.trailColor) {
-                ForEach(TrailColor.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .disabled(!settings.comet)
-            Toggle(isOn: $settings.ambientGlow) {
-                Text(tr("Brillo ambiental", "Ambient glow"))
-                Text(tr("La isla brilla con el color de la portada o del aviso", "The island glows with the artwork or alert color"))
-            }
-            SliderRow(title: tr("Intensidad del brillo", "Glow intensity"), value: $settings.glowIntensity, range: 0.2...1, step: 0.05,
-                      format: { String(format: "%.0f%%", $0 * 100) })
-                .disabled(!settings.ambientGlow)
-        }
-
-        Section(tr("Material", "Material")) {
-            Picker(tr("Isla abierta y pantalla bloqueada", "Open island and lock screen"), selection: $settings.islandMaterial) {
+        Section(tr("Isla", "Island")) {
+            Picker(tr("Material", "Material"), selection: $settings.islandMaterial) {
                 ForEach(IslandMaterial.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
             Text(settings.islandMaterial.subtitle)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-        }
-
-        Section(tr("Forma de la isla", "Island shape")) {
             Picker(tr("Tamaño al abrirse", "Open size"), selection: $settings.islandSize) {
                 ForEach(IslandSize.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
-            SliderRow(title: tr("Redondez", "Roundness"), value: $settings.roundness, range: 0.5...1.4, step: 0.05,
-                      format: { String(format: "%.0f%%", $0 * 100) })
-            Toggle(isOn: $settings.islandOutline) {
-                Text(tr("Borde sutil", "Subtle edge"))
-                Text(tr("Una línea fina para que la isla abierta se distinga en fondos oscuros", "A thin line so the open island stands out on dark wallpapers"))
-            }
         }
 
         Section(tr("Animación", "Animation")) {
@@ -625,12 +534,18 @@ struct AppearanceSettings: View {
             Text(settings.animationStyle.subtitle)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            SliderRow(title: tr("Velocidad", "Speed"), value: $settings.animationSpeed, range: 0.6...1.6, step: 0.05,
-                      format: { String(format: "%.0f%%", $0 * 100) })
             Toggle(isOn: $settings.liquidNotch) {
-                Text(tr("Notch líquido", "Liquid notch"))
-                Text(tr("Al acercar el cursor, el notch se estira como agua hacia él y suelta una gota; al abrirse o cerrarse, ondula",
-                        "As the pointer comes close, the notch stretches toward it like water and lets a drop hang; it ripples as it opens and closes"))
+                Text(tr("Gota de agua", "Water drop"))
+                Text(tr("Al acercar el cursor, el notch se estira como agua y suelta una gota que se funde con la isla al abrirse",
+                        "As the pointer comes close, the notch stretches like water and lets a drop hang that merges into the island as it opens"))
+            }
+            Toggle(isOn: $settings.comet) {
+                Text(tr("Estela de luz", "Light trail"))
+                Text(tr("Un destello recorre el borde de la isla cuando llega algo nuevo", "A streak of light runs along the island when something new arrives"))
+            }
+            Toggle(isOn: $settings.ambientGlow) {
+                Text(tr("Brillo de la portada", "Artwork glow"))
+                Text(tr("La isla cerrada brilla suave con el color de la canción", "The closed island glows softly with the song color"))
             }
         }
     }

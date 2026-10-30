@@ -399,9 +399,9 @@ final class Settings: ObservableObject {
     @Pref("lockEnabled") var lockEnabled = true
     @Pref("lockScreenMedia") var lockScreenMedia = true
     @Pref("lockScreenLyrics") var lockScreenLyrics = true
-    @Pref("lockStyle2") var lockStyle: LockStyle = .widget
+    @Pref("lockStyle3") var lockStyle: LockStyle = .lyrics
     @Pref("lockLayer") var lockLayer: LockLayer = .wallpaper
-    @Pref("lockBackground") var lockBackground: LockBackground = .aurora
+    @Pref("lockBackground2") var lockBackground: LockBackground = .blurred
     @Pref("lockMotion") var lockMotion = true
     @Pref("lockClock") var lockClock = true
     @Pref("lockClockStyle") var lockClockStyle: ClockStyle = .rounded
@@ -422,7 +422,7 @@ final class Settings: ObservableObject {
     @Pref("lyricsOffset") var lyricsOffset = 0.0
     @Pref("lyricsEstimateWords") var lyricsEstimateWords = false
     @Pref("hdArtwork") var hdArtwork = true
-    @Pref("liquidNotch2") var liquidNotch = false
+    @Pref("liquidNotch3") var liquidNotch = true
     @Pref("islandMaterial") var islandMaterial: IslandMaterial = .black
     @Pref("trackPeek") var trackPeek = true
 

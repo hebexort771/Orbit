@@ -31,6 +31,7 @@ struct IslandBody: View {
 
     @EnvironmentObject private var media: NowPlayingService
     @ObservedObject private var settings = Settings.shared
+    @Namespace private var artSpace
 
     private var shape: IslandShape {
         IslandShape(ear: layout.ear, bottom: layout.bottom, topCorner: layout.topCorner)
@@ -138,6 +139,7 @@ struct IslandBody: View {
                 .id(presentation.contentKey)
                 .transition(.orbitContent(motion))
         }
+        .environment(\.islandNamespace, artSpace)
         .frame(width: layout.outerWidth, height: layout.height, alignment: .top)
         .animation(motion.content, value: presentation.contentKey)
     }
@@ -259,6 +261,7 @@ struct CompactMusic: View {
         let wing = max(0, (layout.width - metrics.notchWidth) / 2)
         Wings(notch: metrics.notchWidth, wing: wing, height: h) {
             ArtworkView(size: h - 12, radius: 6)
+                .modifier(MatchedArt())
                 .shadow(color: media.accent.opacity(0.45), radius: 5)
         } right: {
             if settings.compactWaveform {

@@ -138,6 +138,7 @@ struct ExpandedMusic: View {
     private func info(_ track: TrackInfo) -> some View {
         HStack(spacing: 14) {
             ArtworkView(size: 60, radius: 14)
+                .modifier(MatchedArt())
                 .shadow(color: media.accent.opacity(0.55), radius: 14, y: 4)
                 .onTapGesture { media.openSourceApp() }
                 .help(tr("Abrir la app", "Open the app"))
