@@ -133,6 +133,7 @@ struct AnimationStylePreview: View {
         let response: Double
         let damping: Double
         switch style {
+        case .native: response = 0.36; damping = 0.8
         case .orbit: response = 0.45; damping = 0.6
         case .smooth: response = 0.55; damping = 1
         case .snappy: response = 0.22; damping = 0.9
@@ -592,6 +593,16 @@ struct AppearanceSettings: View {
             SliderRow(title: tr("Intensidad del brillo", "Glow intensity"), value: $settings.glowIntensity, range: 0.2...1, step: 0.05,
                       format: { String(format: "%.0f%%", $0 * 100) })
                 .disabled(!settings.ambientGlow)
+        }
+
+        Section(tr("Material", "Material")) {
+            Picker(tr("Isla abierta y pantalla bloqueada", "Open island and lock screen"), selection: $settings.islandMaterial) {
+                ForEach(IslandMaterial.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            Text(settings.islandMaterial.subtitle)
+                .font(.callout)
+                .foregroundStyle(.secondary)
         }
 
         Section(tr("Forma de la isla", "Island shape")) {

@@ -17,6 +17,17 @@ struct Motion {
         let speed = max(0.5, min(1.8, settings.animationSpeed))
         func r(_ value: Double) -> Double { value / speed }
         switch settings.animationStyle {
+        case .native:
+            // Como la Dynamic Island: el ancho va un pelo por delante del alto, muelles firmes con un rebote mínimo,
+            // y el contenido aparece cuando la forma ya casi llegó.
+            return Motion(width: .spring(response: r(0.34), dampingFraction: 0.8),
+                          height: .spring(response: r(0.4), dampingFraction: 0.84),
+                          content: .spring(response: r(0.3), dampingFraction: 0.9),
+                          contentIn: .easeOut(duration: r(0.22)).delay(r(0.08)),
+                          contentOut: .easeIn(duration: r(0.09)),
+                          hover: .spring(response: 0.3, dampingFraction: 0.78),
+                          stagger: r(0.025),
+                          liquid: false)
         case .orbit:
             return Motion(width: .spring(response: r(0.42), dampingFraction: 0.72),
                           height: .spring(response: r(0.52), dampingFraction: 0.78),
@@ -57,8 +68,7 @@ struct BlurFade: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(progress)
-            .blur(radius: (1 - progress) * 10)
-            .scaleEffect(0.88 + 0.12 * progress, anchor: .top)
+            .scaleEffect(0.94 + 0.06 * progress, anchor: .top)
             .offset(y: (1 - progress) * lift)
     }
 }

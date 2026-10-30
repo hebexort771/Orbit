@@ -128,7 +128,7 @@ enum Snapshot {
             ("pro14-mas-espacio", CGSize(width: 1800, height: 1169), 38, 220)
         ]
         for (name, size, top, notchWidth) in macs {
-            for style in [LockStyle.lyrics, .cover, .karaoke, .card] {
+            for style in [LockStyle.widget, .lyrics, .cover, .karaoke, .card] {
                 let state = LockScreenState()
                 state.style = style
                 state.phase = .shown

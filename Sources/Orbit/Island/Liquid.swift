@@ -286,6 +286,8 @@ struct LiquidIslandFill: View {
     let layout: IslandLayout
     let collapsed: Bool
     let shadow: Bool
+    /// Liquid Glass en lugar de negro (solo con la isla abierta).
+    var glass = false
     @ObservedObject var field: LiquidField
     @ObservedObject private var settings = Settings.shared
     @Environment(\.orbitStatic) private var isStatic
@@ -295,9 +297,17 @@ struct LiquidIslandFill: View {
         TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: !running)) { timeline in
             let deform = deformation(at: timeline.date, running: running)
             ZStack(alignment: .top) {
+                if glass {
+                    GlassSurface(shape: IslandShape(ear: shape.ear, bottom: shape.bottom, topCorner: shape.topCorner),
+                                 tint: .black.opacity(0.32))
+                        .shadow(color: .black.opacity(0.28), radius: 12, y: 8)
+                        .transition(.opacity.animation(.easeInOut(duration: 0.25)))
+                }
                 IslandShape(ear: shape.ear, bottom: shape.bottom, topCorner: shape.topCorner, liquid: deform)
                     .fill(Color.black)
-                    .shadow(color: .black.opacity(shadow ? 0.55 : 0), radius: 18, y: 10)
+                    .opacity(glass ? 0 : 1)
+                    .animation(.easeInOut(duration: 0.25), value: glass)
+                    .shadow(color: .black.opacity(shadow && !glass ? 0.45 : 0), radius: 14, y: 8)
                 if deform.drop != nil {
                     ZStack {
                         LiquidDrop(deform: deform, bottom: layout.height, part: .neck).fill(Color.black)

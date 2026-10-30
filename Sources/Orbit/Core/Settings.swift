@@ -115,10 +115,11 @@ enum VirtualVisibility: String, CaseIterable, PrefValue, Identifiable {
 }
 
 enum AnimationStyle: String, CaseIterable, PrefValue, Identifiable {
-    case orbit, smooth, snappy
+    case native, orbit, smooth, snappy
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .native: return tr("Nativa", "Native")
         case .orbit: return tr("Órbita", "Orbit")
         case .smooth: return tr("Suave", "Smooth")
         case .snappy: return tr("Rápida", "Snappy")
@@ -126,6 +127,7 @@ enum AnimationStyle: String, CaseIterable, PrefValue, Identifiable {
     }
     var subtitle: String {
         switch self {
+        case .native: return tr("Como la Dynamic Island de Apple: crece desde el notch con un muelle preciso, sin exagerar", "Like Apple's Dynamic Island: grows out of the notch with a precise spring, never overdone")
         case .orbit: return tr("Líquida, con rebote y estela de luz", "Liquid, bouncy, with a light trail")
         case .smooth: return tr("Elegante y sin rebote", "Elegant, no bounce")
         case .snappy: return tr("Directa y veloz", "Quick and direct")
@@ -189,10 +191,13 @@ enum AppLanguage: String, CaseIterable, PrefValue, Identifiable {
 }
 
 enum LockStyle: String, CaseIterable, PrefValue, Identifiable {
-    case lyrics, cover, karaoke, card
+    case widget, lyrics, cover, karaoke, card
     var id: String { rawValue }
+    /// El widget deja la pantalla bloqueada de macOS tal cual (tu fondo, tu reloj) y solo añade el reproductor.
+    var fullScreen: Bool { self != .widget }
     var title: String {
         switch self {
+        case .widget: return tr("Widget", "Widget")
         case .lyrics: return tr("Letras", "Lyrics")
         case .cover: return tr("Portada", "Cover")
         case .karaoke: return tr("Karaoke", "Karaoke")
@@ -201,6 +206,7 @@ enum LockStyle: String, CaseIterable, PrefValue, Identifiable {
     }
     var subtitle: String {
         switch self {
+        case .widget: return tr("Un reproductor de vidrio debajo del reloj, como una Actividad en vivo; tu fondo no cambia", "A glass player below the clock, like a Live Activity; your wallpaper stays")
         case .lyrics: return tr("Portada y controles a un lado, letra al otro, como Apple Music", "Cover and controls on one side, lyrics on the other, like Apple Music")
         case .cover: return tr("La portada grande al centro, con su reflejo", "A big centered cover with its reflection")
         case .karaoke: return tr("La letra enorme al centro y un reproductor mínimo", "Huge centered lyrics and a minimal player")
@@ -287,12 +293,32 @@ enum AccentMode: String, CaseIterable, PrefValue, Identifiable {
 }
 
 enum IslandSize: String, CaseIterable, PrefValue, Identifiable {
-    case normal, large
+    case compact, normal, large
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .compact: return tr("Compacta", "Compact")
         case .normal: return tr("Normal", "Normal")
         case .large: return tr("Amplia", "Wide")
+        }
+    }
+}
+
+/// De qué está hecha la isla abierta y la tarjeta de la pantalla bloqueada.
+enum IslandMaterial: String, CaseIterable, PrefValue, Identifiable {
+    case black, glass
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .black: return tr("Negro", "Black")
+        case .glass: return tr("Liquid Glass", "Liquid Glass")
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .black: return tr("Negro puro, se funde con el notch de la MacBook", "Pure black that blends into the MacBook notch")
+        case .glass: return tr("Vidrio que deja ver lo que hay detrás, como macOS Tahoe (en versiones anteriores, un vidrio esmerilado oscuro)",
+                               "Glass that shows what's behind it, like macOS Tahoe (frosted dark glass on earlier versions)")
         }
     }
 }
@@ -328,7 +354,7 @@ final class Settings: ObservableObject {
     @Pref("notchWidthAdjust") var notchWidthAdjust = 0.0
     @Pref("notchHeightAdjust") var notchHeightAdjust = 0.0
     @Pref("haptics") var haptics = true
-    @Pref("animationStyle") var animationStyle: AnimationStyle = .orbit
+    @Pref("animationStyle2") var animationStyle: AnimationStyle = .native
     @Pref("animationSpeed") var animationSpeed = 1.0
     @Pref("comet") var comet = true
     @Pref("ambientGlow") var ambientGlow = true
@@ -336,7 +362,7 @@ final class Settings: ObservableObject {
     @Pref("accentMode") var accentMode: AccentMode = .artwork
     @Pref("customAccent") var customAccent = "#FF5C93"
     @Pref("trailColor") var trailColor: TrailColor = .event
-    @Pref("islandSize") var islandSize: IslandSize = .normal
+    @Pref("islandSize2") var islandSize: IslandSize = .compact
     @Pref("roundness") var roundness = 1.0
     @Pref("islandOutline") var islandOutline = true
     @Pref("language") var language: AppLanguage = .system
@@ -373,7 +399,7 @@ final class Settings: ObservableObject {
     @Pref("lockEnabled") var lockEnabled = true
     @Pref("lockScreenMedia") var lockScreenMedia = true
     @Pref("lockScreenLyrics") var lockScreenLyrics = true
-    @Pref("lockStyle") var lockStyle: LockStyle = .lyrics
+    @Pref("lockStyle2") var lockStyle: LockStyle = .widget
     @Pref("lockLayer") var lockLayer: LockLayer = .wallpaper
     @Pref("lockBackground") var lockBackground: LockBackground = .aurora
     @Pref("lockMotion") var lockMotion = true
@@ -396,7 +422,8 @@ final class Settings: ObservableObject {
     @Pref("lyricsOffset") var lyricsOffset = 0.0
     @Pref("lyricsEstimateWords") var lyricsEstimateWords = false
     @Pref("hdArtwork") var hdArtwork = true
-    @Pref("liquidNotch") var liquidNotch = true
+    @Pref("liquidNotch2") var liquidNotch = false
+    @Pref("islandMaterial") var islandMaterial: IslandMaterial = .black
     @Pref("trackPeek") var trackPeek = true
 
     // Calendario

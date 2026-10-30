@@ -114,6 +114,7 @@ final class LockScreenController {
     private var artworkWatch: AnyCancellable?
     private var prepareWatch: AnyCancellable?
     private var settingsWatch: AnyCancellable?
+    private var styleWatch: AnyCancellable?
     private(set) var isLocked = false
     var onChange: ((Bool) -> Void)?
 
@@ -127,6 +128,18 @@ final class LockScreenController {
         prepareWatch = services.media.$softArtwork.combineLatest(services.media.$palette)
             .debounce(for: .milliseconds(700), scheduler: RunLoop.main)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.prepareWallpaper() } }
+        // Si cambias de estilo con la Mac bloqueada (tocando la portada), el fondo se adapta al nuevo estilo.
+        styleWatch = state.$style
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        guard let self, self.isLocked else { return }
+                        self.applyLayer(on: IslandController.preferredScreen())
+                    }
+                }
+            }
         settingsWatch = Settings.shared.objectWillChange
             .debounce(for: .milliseconds(700), scheduler: RunLoop.main)
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.prepareWallpaper() } }
@@ -138,10 +151,29 @@ final class LockScreenController {
         }
     }
 
+    /// Decide qué dibuja Orbit según el estilo: el widget deja tu pantalla bloqueada tal cual (tu fondo y tu reloj);
+    /// los estilos a pantalla completa ponen los colores de la canción como fondo.
+    private func applyLayer(on screen: NSScreen) {
+        let settings = Settings.shared
+        let fullScreen = state.style.fullScreen
+        var onWallpaper = false
+        if fullScreen && settings.lockLayer == .wallpaper {
+            onWallpaper = LockWallpaper.shared.apply(media: services.media, to: screen)
+        } else if LockWallpaper.shared.active {
+            LockWallpaper.shared.restore()
+        }
+        let ownBackdrop = fullScreen && !onWallpaper
+        withAnimation(.easeInOut(duration: 0.4)) {
+            state.backdrop = ownBackdrop
+            state.ownClock = ownBackdrop
+            state.loginHole = ownBackdrop
+        }
+    }
+
     private func prepareWallpaper() {
         let settings = Settings.shared
         guard !isLocked, settings.lockScreenMedia, settings.musicEnabled, settings.lockLayer == .wallpaper,
-              services.media.hasTrack else { return }
+              settings.lockStyle.fullScreen, services.media.hasTrack else { return }
         LockWallpaper.shared.prepare(media: services.media, screen: IslandController.preferredScreen())
     }
 
@@ -170,13 +202,8 @@ final class LockScreenController {
         if wantsMedia {
             // Primero se intenta poner los colores de la canción como fondo de pantalla:
             // así macOS dibuja encima su propio reloj, tu foto y la contraseña.
-            var onWallpaper = false
-            if settings.lockLayer == .wallpaper {
-                onWallpaper = LockWallpaper.shared.apply(media: services.media, to: screen)
-            }
-            state.backdrop = !onWallpaper
-            state.ownClock = !onWallpaper
-            state.loginHole = !onWallpaper
+            state.syncStyle()
+            applyLayer(on: screen)
             state.bands = LockSystemBands()
 
             let panel = screenPanel ?? makeScreenPanel(for: screen)
@@ -193,7 +220,9 @@ final class LockScreenController {
             }
 
             // Medir dónde quedaron el reloj y el inicio de sesión de macOS y guardar un informe.
-            let mode = onWallpaper ? "fondo de pantalla (reloj de macOS)" : "encima de todo (reloj de Orbit)"
+            let onWallpaper = LockWallpaper.shared.active
+            let mode = !state.style.fullScreen ? "widget (tu fondo y tu reloj)"
+                : (onWallpaper ? "fondo de pantalla (reloj de macOS)" : "encima de todo (reloj de Orbit)")
             reportTask?.cancel()
             reportTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
@@ -204,15 +233,15 @@ final class LockScreenController {
             }
 
             // Si cambia la canción con la Mac bloqueada, el fondo cambia también.
-            artworkWatch = onWallpaper ? services.media.$softArtwork
+            artworkWatch = services.media.$softArtwork
                 .dropFirst()
                 .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
                 .sink { [weak self] _ in
                     MainActor.assumeIsolated {
-                        guard let self, self.isLocked else { return }
+                        guard let self, self.isLocked, LockWallpaper.shared.active else { return }
                         LockWallpaper.shared.refresh(media: self.services.media, screen: screen)
                     }
-                } : nil
+                }
         }
 
         if settings.lockEnabled {
@@ -332,7 +361,7 @@ final class LockScreenController {
 // MARK: - Medidas de cada estilo
 
 struct LockLayout {
-    enum Card { case under, cover, mini, full }
+    enum Card { case under, cover, mini, full, widget }
 
     var art: CGRect
     var artRadius: CGFloat
@@ -377,6 +406,15 @@ struct LockLayout {
         lyricsAnchor = 0.36
 
         switch style {
+        case .widget:
+            // Como una Actividad en vivo: debajo del reloj de macOS, del ancho justo.
+            let cw = min(440, max(360, W * 0.25))
+            let ch: CGFloat = 204
+            card = CGRect(x: W / 2 - cw / 2, y: top - H * 0.012, width: cw, height: ch)
+            art = CGRect(x: card.minX + 18, y: card.minY + 18, width: 62, height: 62)
+            artRadius = 13
+            cardKind = .widget
+            cardRadius = 30
         case .lyrics:
             let cardH: CGFloat = 138
             let side = max(150, min(W * 0.24, room - cardH - 20))
@@ -459,7 +497,7 @@ struct LockScreenView: View {
                                 clock: true, settings: settings, bands: state.bands)
 
         ZStack(alignment: .topLeading) {
-            if state.backdrop {
+            if state.backdrop && layout.effective.fullScreen {
                 LockBackdrop(size: size, loginHole: state.loginHole ? loginCenter : nil)
                     .opacity(shown ? 1 : 0)
                     .animation(.easeInOut(duration: leaving ? 0.75 : 1.0), value: state.phase)
@@ -888,7 +926,11 @@ struct LockCard: View {
 
     var body: some View {
         ZStack {
-            if kind != .under {
+            if kind == .widget {
+                GlassSurface(shape: RoundedRectangle(cornerRadius: radius, style: .continuous),
+                             liquid: settings.islandMaterial == .glass, tint: .black.opacity(0.26))
+                    .shadow(color: .black.opacity(0.22), radius: 20, y: 10)
+            } else if kind != .under {
                 card
             }
             content
@@ -912,6 +954,23 @@ struct LockCard: View {
     @ViewBuilder
     private var content: some View {
         switch kind {
+        case .widget:
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 14) {
+                    Color.clear.frame(width: artWidth, height: artWidth)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(track.title).font(.system(size: 16, weight: .semibold)).lineLimit(1)
+                        Text(track.artist).font(.system(size: 14)).foregroundStyle(.white.opacity(0.62)).lineLimit(1)
+                    }
+                    Spacer(minLength: 6)
+                    Waveform(playing: media.isPlaying, style: settings.waveformStyle, color: media.accent, bars: 5, barWidth: 3)
+                        .frame(width: 26, height: 22)
+                }
+                LockProgress()
+                LockControlsRow()
+            }
+            .padding(18)
+            .frame(maxHeight: .infinity, alignment: .top)
         case .under:
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -1245,6 +1304,7 @@ struct LyricDots: View {
 enum LockStylePicture {
     static func symbol(_ style: LockStyle) -> String {
         switch style {
+        case .widget: return "play.rectangle"
         case .lyrics: return "text.quote"
         case .cover: return "photo"
         case .karaoke: return "music.mic"
@@ -1266,6 +1326,12 @@ struct LockStyleThumb: View {
                 Capsule().fill(Color.white.opacity(0.7)).frame(width: W * 0.16, height: H * 0.07)
                     .position(x: W / 2, y: H * 0.15)
                 switch style {
+                case .widget:
+                    RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.18))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.white.opacity(0.25), lineWidth: 0.6))
+                        .frame(width: W * 0.46, height: H * 0.32).position(x: W / 2, y: H * 0.45)
+                    art(W * 0.08).position(x: W * 0.33, y: H * 0.38)
+                    Capsule().fill(Color.white.opacity(0.5)).frame(width: W * 0.36, height: 2).position(x: W / 2, y: H * 0.5)
                 case .lyrics:
                     art(W * 0.24).position(x: W * 0.28, y: H * 0.5)
                     lines(W * 0.38, count: 4, H: H).position(x: W * 0.7, y: H * 0.55)

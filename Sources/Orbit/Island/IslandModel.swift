@@ -215,8 +215,9 @@ final class IslandModel: ObservableObject {
         let current = presentation
         var result = layout(for: current)
         if hovering && !current.isExpanded && current != .hidden && !isPreview {
-            result.width += 18
-            result.height += 3
+            // Un respiro sutil, como la Dynamic Island cuando la rozas: no se abre de golpe.
+            result.width += 10
+            result.height += 2
             if !metrics.floating {
                 result.ear = max(result.ear, 7)
                 result.bottom = max(result.bottom, 12)
@@ -303,13 +304,18 @@ final class IslandModel: ObservableObject {
         case .transient(let kind):
             return compact(kind.wing, extra: kind.extraHeight)
         case .expanded(let page):
-            let large = Settings.shared.islandSize == .large
-            let width = large ? max(n + 2 * 166, 524) : max(n + 2 * 128, 452)
+            let size = Settings.shared.islandSize
+            let width: CGFloat
+            switch size {
+            case .compact: width = max(n + 2 * 104, 400)
+            case .normal: width = max(n + 2 * 128, 452)
+            case .large: width = max(n + 2 * 166, 524)
+            }
             let extra: CGFloat
             switch page {
-            case .music: extra = 144
-            case .calendar: extra = 160
-            case .tray: extra = 130
+            case .music: extra = size == .compact ? 132 : 144
+            case .calendar: extra = size == .compact ? 150 : 160
+            case .tray: extra = size == .compact ? 122 : 130
             }
             return IslandLayout(width: width, height: h + extra, ear: floating ? 0 : 14,
                                 bottom: 32 * round, topCorner: floating ? 32 * round : 0)

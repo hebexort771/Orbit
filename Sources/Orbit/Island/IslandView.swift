@@ -41,7 +41,9 @@ struct IslandBody: View {
             glow
             LiquidIslandFill(shape: shape, layout: layout,
                              collapsed: !presentation.isExpanded && presentation != .hidden,
-                             shadow: presentation.isExpanded, field: model.liquid)
+                             shadow: presentation.isExpanded,
+                             glass: presentation.isExpanded && settings.islandMaterial == .glass,
+                             field: model.liquid)
             content
                 .clipShape(shape)
             IslandEdge(island: shape)
@@ -102,7 +104,8 @@ struct IslandBody: View {
         let base: Double
         switch presentation {
         case .music: base = media.isPlaying ? 0.4 : 0.14
-        case .expanded(.music): base = media.hasTrack ? 0.45 : 0
+        // Abierta, la isla queda limpia (sin brillo detrás), como la Dynamic Island.
+        case .expanded: base = 0
         case .transient(let kind):
             switch kind {
             case .battery, .bluetooth, .calendar, .welcome: base = 0.36
